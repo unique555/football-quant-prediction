@@ -4,7 +4,9 @@
   from notify import send
   send("预测完成: France vs Sweden → 主胜 53%")
 """
-import os, json, requests, time
+import os, json, requests, time, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import config  # 触发 .env 加载
 
 # ── 从环境变量读取配置 ──
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
