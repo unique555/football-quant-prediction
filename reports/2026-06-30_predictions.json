@@ -212,14 +212,14 @@
       "date": "2026-07-04T17:00:00Z",
       "status": "TIMED",
       "home_team": "Canada",
-      "away_team": null,
+      "away_team": "Morocco",
       "matchday": null,
       "market_odds": null,
       "value_bets": [],
       "fair_odds": {
-        "home": 1.76,
-        "draw": 3.79,
-        "away": 6.0
+        "home": 4.22,
+        "draw": 2.75,
+        "away": 2.51
       }
     },
     {
@@ -228,15 +228,15 @@
       "match_id": 537375,
       "date": "2026-07-04T21:00:00Z",
       "status": "TIMED",
-      "home_team": null,
+      "home_team": "Paraguay",
       "away_team": null,
       "matchday": null,
       "market_odds": null,
       "value_bets": [],
       "fair_odds": {
-        "home": 2.89,
-        "draw": 3.24,
-        "away": 2.89
+        "home": 3.79,
+        "draw": 2.84,
+        "away": 2.6
       }
     },
     {
@@ -245,15 +245,15 @@
       "match_id": 537377,
       "date": "2026-07-05T20:00:00Z",
       "status": "TIMED",
-      "home_team": null,
+      "home_team": "Brazil",
       "away_team": null,
       "matchday": null,
       "market_odds": null,
       "value_bets": [],
       "fair_odds": {
-        "home": 2.89,
-        "draw": 3.24,
-        "away": 2.89
+        "home": 1.61,
+        "draw": 3.8,
+        "away": 8.61
       }
     },
     {

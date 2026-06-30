@@ -434,28 +434,45 @@ def main():
     kickoff_delta = (kickoff - now).total_seconds() / 60  # 分钟, 负值=已开赛
     print(f"   距离开赛: {_format_delta(kickoff_delta)}")
     
-    # 3. 拉赔率
+    # 3. 拉赔率 + 五步分析
     print(f"\n📡 拉取 Pinnacle 赔率...")
     odds = fetch_match_odds(match)
     if odds:
         print(f"   ✅ {odds['home']}/{odds['draw']}/{odds['away']}")
     else:
-        print(f"   ⚠️ 无赔率数据 (该联赛可能无 Pinnacle 覆盖)")
+        print(f"   ⚠️ 无赔率数据")
     
-    # 4. 跑预测
-    print(f"\n🔮 运行预测模型...")
-    pred = run_prediction(match, odds)
-    print(f"   {pred['source']} → {pred['prediction']} ({pred['confidence']:.0%})")
+    print(f"\n🔬 启动五步分析引擎...")
+    match["market_odds"] = odds if odds else None
+    match["tournament_id"] = COMP_TO_TOURNAMENT.get(match["competition"], 16)
+    
+    from engine.five_step import MatchAnalyzer, generate_full_report as gen_five_step_report
+    analyzer = MatchAnalyzer(ODDSPAPI_KEY)
+    five_step_result = analyzer.analyze(match)
+    
+    pred = five_step_result["details"]["prediction"]
+    
+    print(f"   {pred.get('source','?')} → {pred['prediction']} ({pred['confidence']:.0%})")
     if pred.get("home_xg", 0) > 0:
         print(f"   xG: {pred['home_xg']}-{pred['away_xg']}")
     
-    # 5. 价值分析
-    value_bets = compute_value(odds, pred) if odds else []
-    if value_bets:
-        real_v = [v for v in value_bets if v["edge"] > 0.03]
-        if real_v:
+    print(f"\n📊 五步评分:")
+    for step_name, score in five_step_result["score_breakdown"].items():
+        bar = "█" * int(score * 15)
+        labels = {"profile": "①画像", "consensus": "②共识", "technical": "③技术", "pricing": "④定价"}
+        print(f"  {labels.get(step_name, step_name)}: {bar} {score:.0%}")
+    print(f"  {'综合':>6s}: {five_step_result['total_score']:.0%} → {five_step_result['suggested_action']}")
+    value_bets = []
+    if odds:
+        raw = 1/odds["home"] + 1/odds["draw"] + 1/odds["away"]
+        for outcome, mk_o, p_key in [("主胜", odds["home"], "p_home"), ("平局", odds["draw"], "p_draw"), ("客胜", odds["away"], "p_away")]:
+            mk_prob = (1/mk_o)/raw
+            edge = (pred[p_key]/mk_prob - 1) if mk_prob > 0 else 0
+            if edge > 0.03:
+                value_bets.append({"outcome": outcome, "odds": mk_o, "market_prob": round(mk_prob,3), "model_prob": pred[p_key], "edge": round(edge,3)})
+        if value_bets:
             print(f"\n💎 价值发现:")
-            for v in sorted(real_v, key=lambda x: -x["edge"]):
+            for v in sorted(value_bets, key=lambda x: -x["edge"]):
                 print(f"   {v['outcome']} @ {v['odds']} | 模型 {v['model_prob']:.1%} vs 市场 {v['market_prob']:.1%} | +{v['edge']:.1%}")
     
     # 6. 保存快照
@@ -478,7 +495,8 @@ def main():
         print(f"📂 这是首次预测, 再次运行可追加新时间点")
     
     # 8. 生成报告
-    report = generate_report(match, odds, pred, value_bets, snapshots, kickoff_delta)
+    # 8. 生成五步分析报告
+    report = gen_five_step_report(match, five_step_result)
     report_path = f"/workspace/football-quant-prediction/reports/match_{match['match_id']}_{now.strftime('%Y%m%d_%H%M%S')}.md"
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report)
