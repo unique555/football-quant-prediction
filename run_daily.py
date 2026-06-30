@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import ODDSPAPI_KEY, FOOTBALL_DATA_KEYS
 from model.trainer import get_model
 from model.national_trainer import get_national_model
+from notify import send
 
 # ============================================================
 # 配置
@@ -356,9 +357,20 @@ def main():
         national_model.train(start_year=2018, end_year=2026)
     
     all_selected = matches + live_matches
+    
+    # ── 拉取 OddsPapi 参与者名映射 (一次性) ──
+    participants_map = {}
+    try:
+        pr = requests.get(f"https://api.oddspapi.io/v4/participants?sportId=10&apiKey={ODDSPAPI_KEY}", timeout=15)
+        if pr.status_code == 200:
+            participants_map = pr.json()
+    except:
+        pass
+    
     for m in all_selected:
         code = m.get("league_code", "")
         is_national = code in NATIONAL_CODES
+        is_live = m.get("status") == "LIVE"
         
         if is_national:
             pred = national_model.predict(m["home_team"], m["away_team"], neutral=True)
@@ -367,13 +379,35 @@ def main():
             pred = model.predict(m["home_team"], m["away_team"], m.get("league_name", ""))
             pred["source"] = "俱乐部Poisson模型"
         
+        if is_live and m.get("home_goals") is not None:
+            pred = _adjust_inplay(pred, m["home_goals"], m["away_goals"], m.get("date", ""))
+            pred["source"] += "+滚球"
+        
         m["prediction"] = pred
         
-        # 尝试匹配赔率 (OddsPapi 的 team name 可能不同, 直接用模型公平赔率)
-        m["market_odds"] = None
-        m["value_bets"] = []
+        market_odds = None
+        tid = {v[1]: k for k, v in LEAGUES.items() if v[1]}.get(code)
+        if tid and code in odds_cache:
+            odds_for_league = odds_cache[code]
+            for p1_id, o in odds_for_league.items():
+                p1_name = participants_map.get(str(p1_id), "")
+                if p1_name and (m["home_team"].lower() in p1_name.lower() or p1_name.lower() in m["home_team"].lower()):
+                    market_odds = o
+                    break
+            if not market_odds and odds_for_league:
+                market_odds = list(odds_for_league.values())[0] if odds_for_league else None
         
-        # 用模型概率生成公平赔率
+        m["market_odds"] = market_odds
+        m["value_bets"] = []
+        if market_odds:
+            raw = 1/market_odds["home"] + 1/market_odds["draw"] + 1/market_odds["away"]
+            m["payout"] = 1/raw
+            for outcome, mk_o, mp_key in [("主胜", market_odds["home"], "p_home"), ("平局", market_odds["draw"], "p_draw"), ("客胜", market_odds["away"], "p_away")]:
+                mk_prob = (1/mk_o)/raw
+                edge = (pred[mp_key]/mk_prob - 1) if mk_prob > 0 else 0
+                if edge > 0.03:
+                    m["value_bets"].append({"outcome": outcome, "odds": mk_o, "market_prob": round(mk_prob,3), "model_prob": pred[mp_key], "edge": round(edge,3)})
+        
         fair_odds = {
             "home": round(1 / pred["p_home"], 2) if pred["p_home"] > 0 else 99,
             "draw": round(1 / pred["p_draw"], 2) if pred["p_draw"] > 0 else 99,
@@ -407,6 +441,11 @@ def main():
     with open(pred_json, "w") as f:
         json.dump(pred_data, f, indent=2, ensure_ascii=False, default=str)
     print(f"   ✅ 预测数据: {pred_json}")
+    
+    # ── 推送通知 ──
+    total_preds = len(matches)
+    if total_preds > 0:
+        send(f"📊 每日预测完成: {total_preds}场比赛 | {today_str}")
     
     print()
     print("=" * 60)
