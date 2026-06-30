@@ -154,6 +154,16 @@ class ConsensusAnalyzer:
                     "away": market_odds["away"],
                 },
             }
+        if not odds_api_key:
+            return {
+                "bookmakers_count": 0,
+                "consensus_score": 0,
+                "consensus_direction": "unknown",
+                "consensus_level": "无赔率数据",
+                "breakdown": {"home": 0, "draw": 0, "away": 0},
+                "pinnacle_odds": None,
+                "avg_odds": None,
+            }
 
         tid = {16: 16, 17: 17, 8: 8, 7: 7}.get(match.get("tournament_id")) or 16  # 默认世界杯
 
