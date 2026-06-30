@@ -55,20 +55,20 @@ class MatchProfiler:
             if odds["home"] < 1.5:
                 odds_type = MatchProfiler.STRONG_FAV
                 fav_side = "主队"
+            elif odds["away"] < 1.5:
+                odds_type = MatchProfiler.STRONG_FAV
+                fav_side = "客队"
             elif odds["home"] < 1.8:
                 odds_type = MatchProfiler.CLEAR_FAV
                 fav_side = "主队"
+            elif odds["away"] < 1.8:
+                odds_type = MatchProfiler.CLEAR_FAV
+                fav_side = "客队"
             elif odds["home"] < 2.3:
                 odds_type = MatchProfiler.MODERATE
                 fav_side = "主队" if odds["home"] < odds["away"] else "客队"
             elif odds["away"] < 2.3:
                 odds_type = MatchProfiler.MODERATE
-                fav_side = "客队"
-            elif odds["away"] < 1.8:
-                odds_type = MatchProfiler.CLEAR_FAV
-                fav_side = "客队"
-            elif odds["away"] < 1.5:
-                odds_type = MatchProfiler.STRONG_FAV
                 fav_side = "客队"
             elif max(odds["home"], odds["away"]) > 3.5:
                 odds_type = MatchProfiler.UPSET_RISK
