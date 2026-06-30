@@ -8,7 +8,8 @@ Telegram 机器人 — 接收消息, 执行分析, 返回结果
 import os
 import sys
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from difflib import SequenceMatcher
 
 import requests
 
@@ -20,8 +21,147 @@ if not TELEGRAM_TOKEN:
     print("❌ 未设置 TELEGRAM_BOT_TOKEN")
     sys.exit(1)
 
-analyzer = MatchAnalyzer(os.getenv("ODDSPAPI_KEY", ""))
-FD_KEY = config.FOOTBALL_DATA_KEYS[0] if config.FOOTBALL_DATA_KEYS else ""
+analyzer = MatchAnalyzer("")
+API_FOOTBALL_KEY = config.API_FOOTBALL_KEYS[0] if config.API_FOOTBALL_KEYS else ""
+API_FOOTBALL_BASE = f"https://{config.API_FOOTBALL_HOST}"
+
+
+def api_football_get(path: str, params: dict | None = None) -> dict:
+    """API-Football GET helper."""
+    if not API_FOOTBALL_KEY:
+        return {"errors": {"key": "API_FOOTBALL_KEYS 未配置"}, "response": []}
+    try:
+        resp = requests.get(
+            f"{API_FOOTBALL_BASE}/{path.lstrip('/')}",
+            params=params or {},
+            headers={"x-apisports-key": API_FOOTBALL_KEY},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        return {"errors": {"request": str(exc)}, "response": []}
+
+
+def normalize_team_name(name: str) -> str:
+    return "".join(ch.lower() for ch in name if ch.isalnum())
+
+
+def team_match_score(query: str, candidate: str) -> float:
+    q = normalize_team_name(query)
+    c = normalize_team_name(candidate)
+    if not q or not c:
+        return 0.0
+    if q in c or c in q:
+        return 1.0
+    return SequenceMatcher(None, q, c).ratio()
+
+
+def split_vs_query(query: str) -> tuple[str, str] | None:
+    query = query.strip()
+    for marker in [" vs ", " VS ", " Vs ", " v ", " V ", " 对 ", "vs"]:
+        if marker in query:
+            left, right = query.split(marker, 1)
+            left, right = left.strip(), right.strip()
+            if left and right:
+                return left, right
+    return None
+
+
+def find_api_football_match(home_q: str, away_q: str) -> dict | None:
+    """Search API-Football fixtures by date window and fuzzy team names."""
+    today = datetime.now(timezone.utc)
+    best_match = None
+    best_score = 0.0
+
+    for delta in range(-7, 8):
+        date_str = (today + timedelta(days=delta)).strftime("%Y-%m-%d")
+        data = api_football_get(
+            "/fixtures",
+            {
+                "date": date_str,
+                "timezone": "Asia/Shanghai",
+            },
+        )
+        for item in data.get("response", []):
+            teams = item.get("teams", {})
+            home_name = teams.get("home", {}).get("name", "")
+            away_name = teams.get("away", {}).get("name", "")
+            score = (team_match_score(home_q, home_name) + team_match_score(away_q, away_name)) / 2
+            if score > best_score:
+                best_score = score
+                best_match = item
+            if score >= 0.86:
+                return item
+
+    return best_match if best_score >= 0.72 else None
+
+
+def get_api_football_match_winner_odds(fixture_id: int) -> dict | None:
+    """Fetch 1X2 odds from API-Football. bet=1 is Match Winner."""
+    data = api_football_get("/odds", {"fixture": fixture_id, "bet": 1})
+    response = data.get("response", [])
+    if not response:
+        return None
+
+    best = None
+    best_bookmaker = ""
+    preferred_bookmakers = ["Pinnacle", "Bet365", "Betfair", "10Bet"]
+    bookmakers = response[0].get("bookmakers", [])
+    bookmakers = sorted(
+        bookmakers,
+        key=lambda bm: (
+            preferred_bookmakers.index(bm.get("name", ""))
+            if bm.get("name", "") in preferred_bookmakers
+            else len(preferred_bookmakers)
+        ),
+    )
+
+    for bookmaker in bookmakers:
+        for bet in bookmaker.get("bets", []):
+            if bet.get("id") != 1:
+                continue
+            odds = {}
+            for value in bet.get("values", []):
+                side = str(value.get("value", "")).lower()
+                odd = value.get("odd")
+                if side == "home":
+                    odds["home"] = float(odd)
+                elif side == "draw":
+                    odds["draw"] = float(odd)
+                elif side == "away":
+                    odds["away"] = float(odd)
+            if {"home", "draw", "away"} <= odds.keys():
+                best = odds
+                best_bookmaker = bookmaker.get("name", "")
+                break
+        if best:
+            break
+
+    if not best:
+        return None
+    best["bookmaker"] = best_bookmaker
+    best["source"] = "api-football"
+    return best
+
+
+def to_match_obj(item: dict, odds: dict | None) -> dict:
+    fixture = item.get("fixture", {})
+    league = item.get("league", {})
+    teams = item.get("teams", {})
+    return {
+        "match_id": fixture.get("id"),
+        "home_team": teams.get("home", {}).get("name", ""),
+        "away_team": teams.get("away", {}).get("name", ""),
+        "date": fixture.get("date", ""),
+        "status": fixture.get("status", {}).get("short", ""),
+        "stage": league.get("round", ""),
+        "competition": league.get("name", ""),
+        "competition_name": league.get("name", ""),
+        "market_odds": odds,
+        "tournament_id": league.get("id"),
+    }
+
 
 # ═══════════════════════════════════════════════════
 # 命令处理
@@ -49,92 +189,23 @@ def send_file(chat_id: int, filepath: str, caption: str = ""):
 def cmd_predict(chat_id: int, query: str):
     """单场比赛分析: /分析 England vs Congo DR"""
     query = query.replace("/分析", "").strip()
-    if not query or "vs" not in query.lower():
+    parts = split_vs_query(query)
+    if not query or not parts:
         send_msg(chat_id, "❌ 格式: /分析 法国 vs 瑞典")
         return
 
     send_msg(chat_id, f"🔍 正在分析: {query}...")
 
-    # 搜索比赛
-    today = datetime.now(timezone.utc)
-    from datetime import timedelta
-
-    date_from = (today - timedelta(days=7)).strftime("%Y-%m-%d")
-    date_to = (today + timedelta(days=7)).strftime("%Y-%m-%d")
-
-    parts = query.split(" vs ")
-    if len(parts) != 2:
-        parts = query.lower().split(" vs ")
-    home_q, away_q = parts[0].strip(), parts[1].strip()
-
-    match = None
-    for comp in ["WC", "EC", "PL", "BL1", "SA", "PD", "FL1"]:
-        try:
-            r = requests.get(
-                f"https://api.football-data.org/v4/competitions/{comp}/matches",
-                params={"dateFrom": date_from, "dateTo": date_to},
-                headers={"X-Auth-Token": FD_KEY},
-                timeout=10,
-            )
-            if r.status_code != 200:
-                continue
-            for m in r.json().get("matches", []):
-                h = (m["homeTeam"].get("name") or "").lower()
-                a = (m["awayTeam"].get("name") or "").lower()
-                if home_q.lower() in h and away_q.lower() in a:
-                    match = m
-                    break
-            if match:
-                break
-        except Exception:
-            pass
+    home_q, away_q = parts
+    match = find_api_football_match(home_q, away_q)
 
     if not match:
-        send_msg(chat_id, f"❌ 未找到比赛: {query}")
+        send_msg(chat_id, f"❌ API-Football 未找到比赛: {query}")
         return
 
-    # 拉赔率
-    odds = None
-    try:
-        odds_r = requests.get(
-            f"https://api.oddspapi.io/v4/odds-by-tournaments?bookmaker=pinnacle&tournamentIds=16&apiKey={os.getenv('ODDSPAPI_KEY', '')}",
-            timeout=15,
-        )
-        parts_api = requests.get(
-            f"https://api.oddspapi.io/v4/participants?sportId=10&apiKey={os.getenv('ODDSPAPI_KEY', '')}",
-            timeout=15,
-        ).json()
-        for item in odds_r.json():
-            p1 = parts_api.get(str(item.get("participant1Id", "")), "")
-            p2 = parts_api.get(str(item.get("participant2Id", "")), "")
-            if (
-                match["homeTeam"]["name"].lower() in p1.lower()
-                and match["awayTeam"]["name"].lower() in p2.lower()
-            ):
-                bm = item["bookmakerOdds"]["pinnacle"]
-                mkt = bm["markets"]["101"]["outcomes"]
-                odds = {
-                    "home": float(mkt["101"]["players"]["0"]["price"]),
-                    "draw": float(mkt["102"]["players"]["0"]["price"]),
-                    "away": float(mkt["103"]["players"]["0"]["price"]),
-                }
-                break
-    except Exception:
-        pass
-
-    # 五步分析
-    match_obj = {
-        "match_id": match["id"],
-        "home_team": match["homeTeam"]["name"],
-        "away_team": match["awayTeam"]["name"],
-        "date": match["utcDate"],
-        "status": match.get("status", ""),
-        "stage": match.get("stage", ""),
-        "competition": match.get("competition", {}).get("code", "WC"),
-        "competition_name": match.get("competition", {}).get("name", ""),
-        "market_odds": odds,
-        "tournament_id": 16,
-    }
+    fixture_id = match.get("fixture", {}).get("id")
+    odds = get_api_football_match_winner_odds(fixture_id) if fixture_id else None
+    match_obj = to_match_obj(match, odds)
 
     result = analyzer.analyze(match_obj)
 
@@ -144,8 +215,15 @@ def cmd_predict(chat_id: int, query: str):
     pricing = d["pricing"]
     consensus = d["consensus"]
 
-    text = f"📊 {match['homeTeam']['name']} vs {match['awayTeam']['name']}\n"
-    text += f"⏰ {match['utcDate'][:16].replace('T', ' ')} | {match.get('stage', '')}\n\n"
+    text = f"📊 {match_obj['home_team']} vs {match_obj['away_team']}\n"
+    text += f"⏰ {match_obj['date'][:16].replace('T', ' ')} | {match_obj.get('stage', '')}\n"
+    if odds:
+        text += (
+            f"📈 API-Football赔率({odds.get('bookmaker', '?')}): "
+            f"{odds['home']}/{odds['draw']}/{odds['away']}\n\n"
+        )
+    else:
+        text += "📈 API-Football 暂无胜平负赔率\n\n"
 
     text += "=" * 30 + "\n"
     text += f"🎯 方向: {result['direction']}\n"
@@ -180,26 +258,11 @@ def cmd_predict(chat_id: int, query: str):
 
 def cmd_today(chat_id: int):
     """今日竞彩全量"""
-    send_msg(chat_id, "🔄 正在分析今日竞彩赛事...")
+    send_msg(chat_id, "🔄 正在用 API-Football 分析今日赛事...")
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    from datetime import timedelta
-
-    tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%d")
-
-    all_matches = []
-    for comp in ["WC", "EC", "PL", "BL1", "SA", "PD", "FL1"]:
-        try:
-            r = requests.get(
-                f"https://api.football-data.org/v4/competitions/{comp}/matches",
-                params={"dateFrom": today, "dateTo": tomorrow},
-                headers={"X-Auth-Token": FD_KEY},
-                timeout=10,
-            )
-            if r.status_code == 200:
-                all_matches.extend(r.json().get("matches", []))
-        except Exception:
-            pass
+    data = api_football_get("/fixtures", {"date": today, "timezone": "Asia/Shanghai"})
+    all_matches = data.get("response", [])
 
     if not all_matches:
         send_msg(chat_id, "📭 今日无赛事")
@@ -208,24 +271,21 @@ def cmd_today(chat_id: int):
     text = f"📅 {today} 竞彩赛事\n\n"
     results = []
     for m in all_matches[:10]:  # 最多10场
-        mo = {
-            "match_id": m["id"],
-            "home_team": m["homeTeam"]["name"],
-            "away_team": m["awayTeam"]["name"],
-            "date": m["utcDate"],
-            "competition": "WC",
-            "competition_name": m.get("competition", {}).get("name", ""),
-            "stage": m.get("stage", ""),
-            "status": m.get("status", ""),
-            "market_odds": None,
-            "tournament_id": 16,
-        }
+        fixture_id = m.get("fixture", {}).get("id")
+        odds = get_api_football_match_winner_odds(fixture_id) if fixture_id else None
+        mo = to_match_obj(m, odds)
         r = analyzer.analyze(mo)
-        results.append((m, r))
+        results.append((mo, odds, r))
 
-    for m, r in results:
-        t = m["utcDate"][11:16]
-        text += f"{t} | {m['homeTeam']['name']} vs {m['awayTeam']['name']}\n"
+    for m, odds, r in results:
+        t = m["date"][11:16]
+        text += f"{t} | {m['home_team']} vs {m['away_team']}\n"
+        if odds:
+            text += (
+                f"  赔率 {odds['home']}/{odds['draw']}/{odds['away']} ({odds.get('bookmaker')})\n"
+            )
+        else:
+            text += "  暂无 API-Football 胜平负赔率\n"
         text += f"  {r['direction']} | 评分{r['total_score']:.0%} | {r['confidence']} | {r['risk_level']}\n\n"
 
     send_msg(chat_id, text)

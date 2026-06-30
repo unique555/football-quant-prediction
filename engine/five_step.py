@@ -130,6 +130,31 @@ class ConsensusAnalyzer:
     @staticmethod
     def analyze(match: dict, odds_api_key: str) -> dict:
         """拉多家赔率, 分析共识度"""
+        market_odds = match.get("market_odds")
+        if not odds_api_key and market_odds:
+            raw = 1 / market_odds["home"] + 1 / market_odds["draw"] + 1 / market_odds["away"]
+            implied = {
+                "home": (1 / market_odds["home"]) / raw,
+                "draw": (1 / market_odds["draw"]) / raw,
+                "away": (1 / market_odds["away"]) / raw,
+            }
+            direction = max(implied, key=implied.get)
+            breakdown = {"home": 0, "draw": 0, "away": 0}
+            breakdown[direction] = 1
+            return {
+                "bookmakers_count": 1,
+                "consensus_score": 0.5,
+                "consensus_direction": direction,
+                "consensus_level": "单源赔率",
+                "breakdown": breakdown,
+                "pinnacle_odds": None,
+                "avg_odds": {
+                    "home": market_odds["home"],
+                    "draw": market_odds["draw"],
+                    "away": market_odds["away"],
+                },
+            }
+
         tid = {16: 16, 17: 17, 8: 8, 7: 7}.get(match.get("tournament_id")) or 16  # 默认世界杯
 
         bookmakers_odds = {}

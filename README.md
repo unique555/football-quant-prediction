@@ -66,6 +66,40 @@ make format          # 后端 Ruff format + 前端 Prettier
 
 本地不使用 Docker 时，后端代码默认假设 `backend/` 是 Python 工作目录，或需要显式设置 `PYTHONPATH`。
 
+## Telegram Bot
+
+机器人入口是 `bot.py`，使用 API-Football 查询赛程和胜平负赔率。找不到 API-Football fixture 时会直接返回未找到比赛，不再回退到其他数据源。
+
+需要的环境变量：
+
+```env
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+API_FOOTBALL_KEYS=
+API_FOOTBALL_HOST=v3.football.api-sports.io
+```
+
+本地启动：
+
+```bash
+python -u bot.py
+```
+
+## Railway 部署
+
+仓库包含 `railway.json` 和 `Procfile`，Railway 会以后台 worker 方式运行 Telegram 长轮询机器人，不需要暴露 HTTP 端口。
+
+部署步骤：
+
+1. 在 Railway 新建项目，选择 `Deploy from GitHub repo`。
+2. 选择 `unique555/football-quant-prediction`。
+3. 在 service 的 `Variables` 中添加 `.env` 里的密钥，至少包括：
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_CHAT_ID`
+   - `API_FOOTBALL_KEYS`
+   - `API_FOOTBALL_HOST=v3.football.api-sports.io`
+4. 部署后查看 Logs，看到 `机器人启动... Offset ... 等待消息...` 即表示运行中。
+
 ## 代码规范
 
 Python 使用 Ruff 统一导入、基础静态检查和格式化；前端使用 ESLint + Prettier。

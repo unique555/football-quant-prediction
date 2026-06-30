@@ -32,3 +32,4 @@ FOOTBALL_DATA_KEYS = [k.strip() for k in _raw.split(",") if k.strip()] if _raw e
 # API-Football (已暂停, 备用)
 _raw2 = os.getenv("API_FOOTBALL_KEYS", "")
 API_FOOTBALL_KEYS = [k.strip() for k in _raw2.split(",") if k.strip()] if _raw2 else []
+API_FOOTBALL_HOST = os.getenv("API_FOOTBALL_HOST", "v3.football.api-sports.io")

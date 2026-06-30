@@ -23,7 +23,7 @@ from data.http_client import APIClient
 
 logger = logging.getLogger(__name__)
 
-API_FOOTBALL_HOST = os.getenv("API_FOOTBALL_HOST", "v3.api-football.com")
+API_FOOTBALL_HOST = os.getenv("API_FOOTBALL_HOST", "v3.football.api-sports.io")
 
 
 @dataclass
