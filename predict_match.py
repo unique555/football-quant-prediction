@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import ODDSPAPI_KEY, FOOTBALL_DATA_KEYS
 from model.trainer import get_model
 from model.national_trainer import get_national_model
+from utils import get_match_score
 
 HISTORY_DIR = "/workspace/football-quant-prediction/reports/match_history"
 FD_KEY = FOOTBALL_DATA_KEYS[0] if FOOTBALL_DATA_KEYS else ""
@@ -56,7 +57,7 @@ def find_match(query: str) -> dict:
                 if not h or not a:
                     continue
                 if home_q.lower() in h and away_q.lower() in a:
-                    score = m.get("score", {}).get("fullTime", {})
+                    sc = get_match_score(m.get("score", {}) or {})
                     comp_info = m.get("competition", {})
                     return {
                         "match_id": m["id"], "home_team": m["homeTeam"]["name"],
@@ -64,7 +65,7 @@ def find_match(query: str) -> dict:
                         "status": m.get("status", ""), "stage": m.get("stage", ""),
                         "competition": comp_info.get("code", "?"),
                         "competition_name": comp_info.get("name", "?"),
-                        "home_score": score.get("home"), "away_score": score.get("away"),
+                        "home_score": sc["home"], "away_score": sc["away"],
                     }
             # 如果不是 WC/EC, 只查一次全局 matches 就够了
             break
@@ -410,14 +411,14 @@ def main():
             print(f"❌ 未找到 match_id={args.id}")
             return
         m = r.json()
-        score = m.get("score", {}).get("fullTime", {})
+        sc = get_match_score(m.get("score", {}) or {})
         match = {
             "match_id": m["id"], "home_team": m["homeTeam"]["name"],
             "away_team": m["awayTeam"]["name"], "date": m["utcDate"],
             "status": m.get("status", ""), "stage": m.get("stage", ""),
             "competition": m.get("competition", {}).get("code", "?"),
             "competition_name": m.get("competition", {}).get("name", "?"),
-            "home_score": score.get("home"), "away_score": score.get("away"),
+            "home_score": sc["home"], "away_score": sc["away"],
         }
     else:
         match = find_match(args.query)

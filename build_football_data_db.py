@@ -13,7 +13,9 @@ from typing import Optional
 import pandas as pd
 import requests
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import FOOTBALL_DATA_KEYS
+from utils import get_match_score
 
 # ============================================================
 # 配置 — 多 Key 多线程
@@ -84,8 +86,7 @@ def fetch_matches(competition_code: str, season: int, league_name: str,
     
     matches = []
     for m in data.get("matches", []):
-        score = m.get("score", {}).get("fullTime", {})
-        ht = m.get("score", {}).get("halfTime", {})
+        sc = get_match_score(m.get("score", {}) or {})
         matches.append({
             "league_name": league_name,
             "league_code": competition_code,
@@ -96,10 +97,10 @@ def fetch_matches(competition_code: str, season: int, league_name: str,
             "matchday": m.get("matchday"),
             "home_team": m.get("homeTeam", {}).get("name", ""),
             "away_team": m.get("awayTeam", {}).get("name", ""),
-            "home_goals": score.get("home"),
-            "away_goals": score.get("away"),
-            "ht_home_goals": ht.get("home"),
-            "ht_away_goals": ht.get("away"),
+            "home_goals": sc.get("home"),
+            "away_goals": sc.get("away"),
+            "ht_home_goals": sc.get("ht_home"),
+            "ht_away_goals": sc.get("ht_away"),
             "stage": m.get("stage", ""),
             "group": m.get("group", ""),
         })

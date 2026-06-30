@@ -1,6 +1,36 @@
-"""公共工具函数 — 滚球调整 & CLV 分析"""
+"""公共工具函数 — 滚球调整 & CLV 分析 & 比分解析"""
 from datetime import datetime, timezone
 from math import exp, factorial
+
+
+def get_match_score(score_obj: dict) -> dict:
+    """统一比分解析: 优先 regularTime(90分钟), 回退 fullTime"""
+    if not score_obj or not isinstance(score_obj, dict):
+        return {"home": None, "away": None, "ht_home": None, "ht_away": None}
+    
+    # 优先取 regularTime (不包含点球), 回退 fullTime
+    ft = score_obj.get("regularTime") or score_obj.get("fullTime") or {}
+    ht = score_obj.get("halfTime") or {}
+    
+    return {
+        "home": ft.get("home"),
+        "away": ft.get("away"),
+        "ht_home": ht.get("home"),
+        "ht_away": ht.get("away"),
+    }
+
+
+def get_final_result(score_obj: dict) -> str:
+    """返回 'H'/'D'/'A', 如果有点球则基于 regularTime 判断"""
+    if not score_obj:
+        return "?"
+    rt = score_obj.get("regularTime") or score_obj.get("fullTime") or {}
+    h, a = rt.get("home"), rt.get("away")
+    if h is None or a is None:
+        return "?"
+    if h > a: return "H"
+    if h == a: return "D"
+    return "A"
 
 
 def adjust_inplay(pred: dict, home_goals: int, away_goals: int, match_date: str) -> dict:

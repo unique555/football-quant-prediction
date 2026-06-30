@@ -15,6 +15,7 @@ from config import ODDSPAPI_KEY, FOOTBALL_DATA_KEYS
 from model.trainer import get_model
 from model.national_trainer import get_national_model
 from notify import send
+from utils import get_match_score, adjust_inplay as _adjust_inplay
 
 # ============================================================
 # 配置
@@ -103,7 +104,8 @@ def fetch_live_matches() -> list[dict]:
                 continue
             
             for m in r.json().get("matches", []):
-                score = m.get("score", {}).get("fullTime", {})
+                score = m.get("score", {}) or {}
+                sc = get_match_score(score)
                 all_matches.append({
                     "league_name": lname,
                     "league_code": code,
@@ -112,8 +114,8 @@ def fetch_live_matches() -> list[dict]:
                     "status": "LIVE",
                     "home_team": m.get("homeTeam", {}).get("name", ""),
                     "away_team": m.get("awayTeam", {}).get("name", ""),
-                    "home_goals": score.get("home"),
-                    "away_goals": score.get("away"),
+                    "home_goals": sc.get("home"),
+                    "away_goals": sc.get("away"),
                 })
         except Exception as e:
             print(f"  ⚠️ {lname} LIVE 拉取失败: {e}")

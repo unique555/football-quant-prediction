@@ -14,6 +14,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import FOOTBALL_DATA_KEYS
 from model.trainer import get_model
+from utils import get_match_score
 
 FOOTBALL_DATA_KEYS_LIST = FOOTBALL_DATA_KEYS if FOOTBALL_DATA_KEYS else []
 BASE_URL = "https://api.football-data.org/v4"
@@ -44,7 +45,7 @@ def fetch_completed(date_str: str) -> list[dict]:
                 continue
             
             for m in r.json().get("matches", []):
-                score = m.get("score", {}).get("fullTime", {})
+                sc = get_match_score(m.get("score", {}) or {})
                 all_matches.append({
                     "league_name": lname,
                     "league_code": code,
@@ -52,8 +53,8 @@ def fetch_completed(date_str: str) -> list[dict]:
                     "date": m.get("utcDate", ""),
                     "home_team": m.get("homeTeam", {}).get("name", ""),
                     "away_team": m.get("awayTeam", {}).get("name", ""),
-                    "home_goals": score.get("home"),
-                    "away_goals": score.get("away"),
+                    "home_goals": sc["home"],
+                    "away_goals": sc["away"],
                 })
         except Exception as e:
             print(f"  ⚠️ {lname}: {e}")
