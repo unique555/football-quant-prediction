@@ -4,14 +4,16 @@
 解决优化点 #9: 不同联赛有不同 baseline
 意甲平局率 ~28%、英超 ~25%、德甲 ~22%
 """
+
 from dataclasses import dataclass, field
-from typing import Optional
-from engine.config.settings import LeagueProfile, engine_config
+
+from engine.config.settings import engine_config
 
 
 @dataclass
 class CalibratedProbabilities:
     """联赛校准后的概率"""
+
     home_prob: float
     draw_prob: float
     away_prob: float

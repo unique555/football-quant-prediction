@@ -7,11 +7,12 @@
   #16 交叉验证 — 输出置信度区间 + 关键假设
   #19 信号衰减 — 时间权重
 """
+
+import statistics
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Optional
-import statistics
-from datetime import datetime
 
 from engine.config.settings import ConsensusConfig, engine_config
 
@@ -46,20 +47,22 @@ class BookmakerSnapshot:
 @dataclass
 class OddsShiftReport:
     """赔率走势全方向报告 (#3)"""
-    home_trend: Optional[str] = None     # "steam" | "drift" | None
+
+    home_trend: Optional[str] = None  # "steam" | "drift" | None
     draw_trend: Optional[str] = None
     away_trend: Optional[str] = None
-    shift_magnitude: float = 0.0        # 最大变动幅度
+    shift_magnitude: float = 0.0  # 最大变动幅度
     notes: list[str] = field(default_factory=list)
 
 
 @dataclass
 class ConfidenceInterval:
     """置信度区间 (#16 交叉验证)"""
+
     point_estimate: float
     lower: float
     upper: float
-    width: float               # 区间宽度 → 越小越确定
+    width: float  # 区间宽度 → 越小越确定
 
 
 @dataclass
@@ -82,18 +85,26 @@ class ConsensusResult:
     avg_implied_away_prob: float
 
     # 新增
-    shift_report: Optional[OddsShiftReport] = None       # #3 全方向走势
+    shift_report: Optional[OddsShiftReport] = None  # #3 全方向走势
     direction_confidence_interval: Optional[ConfidenceInterval] = None  # #16
-    data_quality: float = 1.0                            # #13
+    data_quality: float = 1.0  # #13
     key_assumptions: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
 
 BOOKMAKER_WEIGHTS = {
-    "bet365": 1.0, "pinnacle": 1.0, "william_hill": 0.9,
-    "betfair": 0.9, "betway": 0.8, "1xbet": 0.8,
-    "unibet": 0.7, "sbobet": 0.7, "bwin": 0.8,
-    "marathon": 0.7, "betsson": 0.7, "interwetten": 0.7,
+    "bet365": 1.0,
+    "pinnacle": 1.0,
+    "william_hill": 0.9,
+    "betfair": 0.9,
+    "betway": 0.8,
+    "1xbet": 0.8,
+    "unibet": 0.7,
+    "sbobet": 0.7,
+    "bwin": 0.8,
+    "marathon": 0.7,
+    "betsson": 0.7,
+    "interwetten": 0.7,
 }
 
 
@@ -113,9 +124,15 @@ def analyze_consensus(
             market_direction=MarketDirection.UNCLEAR,
             direction_strength=0.0,
             bookmaker_count=len(bookmakers),
-            avg_home_odds=0, avg_draw_odds=0, avg_away_odds=0,
-            home_std=0, draw_std=0, away_std=0,
-            avg_implied_home_prob=0, avg_implied_draw_prob=0, avg_implied_away_prob=0,
+            avg_home_odds=0,
+            avg_draw_odds=0,
+            avg_away_odds=0,
+            home_std=0,
+            draw_std=0,
+            away_std=0,
+            avg_implied_home_prob=0,
+            avg_implied_draw_prob=0,
+            avg_implied_away_prob=0,
             data_quality=0.0,
             key_assumptions=["机构数量不足"],
         )
@@ -174,8 +191,12 @@ def analyze_consensus(
     # ---- 置信度区间 (#16) ----
     ci = ConfidenceInterval(
         point_estimate=avg_home_p,
-        lower=max(0, avg_home_p - 1.96 * home_std / (len(raw_homes) ** 0.5)) if home_std else avg_home_p,
-        upper=min(1, avg_home_p + 1.96 * home_std / (len(raw_homes) ** 0.5)) if home_std else avg_home_p,
+        lower=max(0, avg_home_p - 1.96 * home_std / (len(raw_homes) ** 0.5))
+        if home_std
+        else avg_home_p,
+        upper=min(1, avg_home_p + 1.96 * home_std / (len(raw_homes) ** 0.5))
+        if home_std
+        else avg_home_p,
         width=0,
     )
     ci.width = ci.upper - ci.lower
@@ -202,8 +223,12 @@ def analyze_consensus(
         market_direction=direction,
         direction_strength=max(avg_home_p, avg_draw_p, avg_away_p),
         bookmaker_count=len(bookmakers),
-        avg_home_odds=mean_home, avg_draw_odds=mean_draw, avg_away_odds=mean_away,
-        home_std=home_std, draw_std=draw_std, away_std=away_std,
+        avg_home_odds=mean_home,
+        avg_draw_odds=mean_draw,
+        avg_away_odds=mean_away,
+        home_std=home_std,
+        draw_std=draw_std,
+        away_std=away_std,
         avg_implied_home_prob=avg_home_p,
         avg_implied_draw_prob=avg_draw_p,
         avg_implied_away_prob=avg_away_p,
@@ -215,7 +240,9 @@ def analyze_consensus(
     )
 
 
-def _determine_direction(home_p: float, draw_p: float, away_p: float, cfg: ConsensusConfig) -> MarketDirection:
+def _determine_direction(
+    home_p: float, draw_p: float, away_p: float, cfg: ConsensusConfig
+) -> MarketDirection:
     probs = {"home": home_p, "draw": draw_p, "away": away_p}
     sorted_items = sorted(probs.items(), key=lambda x: x[1], reverse=True)
     top_key, top_val = sorted_items[0]
@@ -253,19 +280,27 @@ def _detect_odds_shift_all(
             change = (old - new) / old  # 正=降水
 
             if change > cfg.odds_shift_threshold:
-                if attr == "home_odds": home_steam += 1
-                elif attr == "draw_odds": draw_steam += 1
-                else: away_steam += 1
+                if attr == "home_odds":
+                    home_steam += 1
+                elif attr == "draw_odds":
+                    draw_steam += 1
+                else:
+                    away_steam += 1
                 max_shift = max(max_shift, change)
             elif change < -cfg.odds_shift_threshold:
-                if attr == "home_odds": home_drift += 1
-                elif attr == "draw_odds": draw_drift += 1
-                else: away_drift += 1
+                if attr == "home_odds":
+                    home_drift += 1
+                elif attr == "draw_odds":
+                    draw_drift += 1
+                else:
+                    away_drift += 1
                 max_shift = max(max_shift, abs(change))
 
     def _trend(steam, drift):
-        if steam > drift + 1: return "steam"
-        if drift > steam + 1: return "drift"
+        if steam > drift + 1:
+            return "steam"
+        if drift > steam + 1:
+            return "drift"
         return None
 
     shift = OddsShiftReport(

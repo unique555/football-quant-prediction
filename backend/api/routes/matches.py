@@ -1,6 +1,7 @@
 """
 比赛路由 — 赛程、详情、H2H
 """
+
 from fastapi import APIRouter
 
 router = APIRouter()

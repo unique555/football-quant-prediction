@@ -1,9 +1,9 @@
 """
 Celery 应用配置
 """
+
 from celery import Celery
 from celery.schedules import crontab
-
 from core.config import settings
 
 celery_app = Celery(

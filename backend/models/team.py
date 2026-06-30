@@ -1,9 +1,9 @@
 """
 SQLAlchemy ORM 模型：球队
 """
-from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime, func
 
 from core.database import Base
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, func
 
 
 class Team(Base):

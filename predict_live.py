@@ -4,18 +4,19 @@
 用法: python3 predict_live.py
 输出: /workspace/football-quant-prediction/live_prediction_report.md
 """
-import sys, os, json, time
+
+import os
+import sys
+import time
 from math import exp, factorial
 from typing import Optional
 
 import pandas as pd
-import numpy as np
 import requests
 
 # ============================================================
 # 配置
 # ============================================================
-import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import ODDSPAPI_KEY
 
@@ -25,6 +26,7 @@ REPORT_PATH = "/workspace/football-quant-prediction/live_prediction_report.md"
 # ============================================================
 # 1. 数据拉取
 # ============================================================
+
 
 def fetch_odds_pinnacle(tournament_id: int = 17) -> list[dict]:
     url = f"https://api.oddspapi.io/v4/odds-by-tournaments?bookmaker=pinnacle&tournamentIds={tournament_id}&apiKey={ODDSPAPI_KEY}"
@@ -54,6 +56,7 @@ def fetch_fixtures(league_id: int = 39, season: int = 2024) -> list[dict]:
 # ============================================================
 # 2. 解析
 # ============================================================
+
 
 def parse_odds(item: dict, participants: dict) -> Optional[dict]:
     bm = item.get("bookmakerOdds", {}).get("pinnacle", {})
@@ -95,6 +98,7 @@ def parse_fixture(item: dict) -> dict:
 # ============================================================
 # 3. 球队实力建模 (基于2024赛季赛果)
 # ============================================================
+
 
 def build_team_strength(fixtures: list[dict]) -> dict:
     teams = {}
@@ -151,10 +155,11 @@ def build_team_strength(fixtures: list[dict]) -> dict:
 # 4. 泊松模型预测
 # ============================================================
 
+
 def poisson_pmf(lmbda, k):
     if k < 0:
         return 0.0
-    return exp(-lmbda) * (lmbda ** k) / factorial(k)
+    return exp(-lmbda) * (lmbda**k) / factorial(k)
 
 
 def predict_match(home_team: str, away_team: str, ratings: dict) -> dict:
@@ -212,6 +217,7 @@ def model_to_odds(p_home: float, p_draw: float, p_away: float, margin: float = 0
 # 5. 价值投注识别
 # ============================================================
 
+
 def find_value_bets(market_odds: dict, model_pred: dict) -> list:
     """对比市场赔率与模型预测，找价值投注"""
     outcomes = [
@@ -225,21 +231,24 @@ def find_value_bets(market_odds: dict, model_pred: dict) -> list:
         model_prob = model_pred[prob_key]
         fair_odds = 1 / model_prob if model_prob > 0 else 999
         edge = (model_prob / market_prob - 1) if market_prob > 0 else 0
-        bets.append({
-            "outcome": label,
-            "market_odds": market_odds[odds_key],
-            "model_prob": round(model_prob, 3),
-            "market_implied_prob": round(market_prob, 3),
-            "fair_odds": round(fair_odds, 2),
-            "edge": round(edge, 3),
-            "is_value": edge > 0.05,
-        })
+        bets.append(
+            {
+                "outcome": label,
+                "market_odds": market_odds[odds_key],
+                "model_prob": round(model_prob, 3),
+                "market_implied_prob": round(market_prob, 3),
+                "fair_odds": round(fair_odds, 2),
+                "edge": round(edge, 3),
+                "is_value": edge > 0.05,
+            }
+        )
     return bets
 
 
 # ============================================================
 # 6. 队名模糊匹配 (OddsPapi名 ↔ API-Football名)
 # ============================================================
+
 
 def fuzzy_match_team(op_name: str, ratings: dict) -> Optional[str]:
     """在ratings中查找最佳匹配的队名"""
@@ -269,6 +278,7 @@ def fuzzy_match_team(op_name: str, ratings: dict) -> Optional[str]:
 # 7. 生成 MD 报告
 # ============================================================
 
+
 def generate_report(
     current_matches: list,
     ratings: dict,
@@ -278,31 +288,33 @@ def generate_report(
     now_ts = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
 
     lines = []
-    lines.append(f"# ⚽ 足球量化预测 - 实盘分析报告")
-    lines.append(f"")
+    lines.append("# ⚽ 足球量化预测 - 实盘分析报告")
+    lines.append("")
     lines.append(f"> 生成时间: {now_ts}  ")
-    lines.append(f"> 数据源: OddsPapi (Pinnacle 赔率) + API-Football (赛果)  ")
-    lines.append(f"> 模型: Poisson 分布 × 球队实力评分  ")
-    lines.append(f"")
+    lines.append("> 数据源: OddsPapi (Pinnacle 赔率) + API-Football (赛果)  ")
+    lines.append("> 模型: Poisson 分布 × 球队实力评分  ")
+    lines.append("")
 
     # ---- Part 1: 当前市场概览 ----
-    lines.append(f"## 一、当前赔率市场概览")
-    lines.append(f"")
-    lines.append(f"| 指标 | 数值 |")
-    lines.append(f"|------|------|")
+    lines.append("## 一、当前赔率市场概览")
+    lines.append("")
+    lines.append("| 指标 | 数值 |")
+    lines.append("|------|------|")
     lines.append(f"| 当前可交易场次 | {current_odds_analysis['total_matches']} |")
     lines.append(f"| Pinnacle 平均抽水 | {current_odds_analysis['avg_margin']:.2%} |")
     lines.append(f"| 平均返还率 | {current_odds_analysis['avg_payout']:.1%} |")
     lines.append(f"| 主胜倾向场次 | {current_odds_analysis['market_bias']['home_favored']} |")
     lines.append(f"| 客胜倾向场次 | {current_odds_analysis['market_bias']['away_favored']} |")
     lines.append(f"| 市场隐含主胜概率均值 | {current_odds_analysis['implied_home_win_pct']:.1%} |")
-    lines.append(f"")
+    lines.append("")
 
     # ---- Part 2: 当下比赛预测 ----
-    lines.append(f"## 二、当下比赛预测 (vs 市场赔率)")
-    lines.append(f"")
-    lines.append(f"每场比赛对比 **模型预测概率** 与 **Pinnacle 市场赔率隐含概率**，识别价值投注机会。")
-    lines.append(f"")
+    lines.append("## 二、当下比赛预测 (vs 市场赔率)")
+    lines.append("")
+    lines.append(
+        "每场比赛对比 **模型预测概率** 与 **Pinnacle 市场赔率隐含概率**，识别价值投注机会。"
+    )
+    lines.append("")
 
     for i, m in enumerate(current_matches, 1):
         home = m["home_team"]
@@ -311,116 +323,135 @@ def generate_report(
         value_bets = m["value_bets"]
 
         lines.append(f"### 比赛 {i}: {home} vs {away}")
-        lines.append(f"")
+        lines.append("")
         lines.append(f"**开赛时间**: {m['start_time'][:16].replace('T', ' ')}  ")
-        lines.append(f"**模型评级**: 主队 {m.get('home_rating', 'N/A')} | 客队 {m.get('away_rating', 'N/A')}")
-        lines.append(f"")
+        lines.append(
+            f"**模型评级**: 主队 {m.get('home_rating', 'N/A')} | 客队 {m.get('away_rating', 'N/A')}"
+        )
+        lines.append("")
 
         # 核心预测表
-        lines.append(f"| 指标 | 主胜 | 平局 | 客胜 |")
-        lines.append(f"|------|------|------|------|")
-        lines.append(f"| **Pinnacle 赔率** | {m['home_odds']} | {m['draw_odds']} | {m['away_odds']} |")
-        lines.append(f"| **模型预测概率** | {pred['p_home']:.1%} | {pred['p_draw']:.1%} | {pred['p_away']:.1%} |")
+        lines.append("| 指标 | 主胜 | 平局 | 客胜 |")
+        lines.append("|------|------|------|------|")
+        lines.append(
+            f"| **Pinnacle 赔率** | {m['home_odds']} | {m['draw_odds']} | {m['away_odds']} |"
+        )
+        lines.append(
+            f"| **模型预测概率** | {pred['p_home']:.1%} | {pred['p_draw']:.1%} | {pred['p_away']:.1%} |"
+        )
         # 市场隐含概率
-        raw_sum = 1/m['home_odds'] + 1/m['draw_odds'] + 1/m['away_odds']
-        mph = (1/m['home_odds']) / raw_sum
-        mpd = (1/m['draw_odds']) / raw_sum
-        mpa = (1/m['away_odds']) / raw_sum
+        raw_sum = 1 / m["home_odds"] + 1 / m["draw_odds"] + 1 / m["away_odds"]
+        mph = (1 / m["home_odds"]) / raw_sum
+        mpd = (1 / m["draw_odds"]) / raw_sum
+        mpa = (1 / m["away_odds"]) / raw_sum
         lines.append(f"| **市场隐含概率** | {mph:.1%} | {mpd:.1%} | {mpa:.1%} |")
-        model_odds = model_to_odds(pred['p_home'], pred['p_draw'], pred['p_away'])
+        model_odds = model_to_odds(pred["p_home"], pred["p_draw"], pred["p_away"])
         lines.append(f"| **模型公平赔率** | {model_odds[0]} | {model_odds[1]} | {model_odds[2]} |")
-        lines.append(f"")
+        lines.append("")
 
         # 预测
-        max_outcome = max([("主胜", pred['p_home']), ("平局", pred['p_draw']), ("客胜", pred['p_away'])], key=lambda x: x[1])
+        max_outcome = max(
+            [("主胜", pred["p_home"]), ("平局", pred["p_draw"]), ("客胜", pred["p_away"])],
+            key=lambda x: x[1],
+        )
         lines.append(f"**🔮 模型预测**: **{max_outcome[0]}** (概率 {max_outcome[1]:.1%})")
-        lines.append(f"")
+        lines.append("")
 
         # xG
         lines.append(f"**预期进球**: 主 {pred['home_xg']} - {pred['away_xg']} 客  ")
-        lines.append(f"**最可能比分**: " + " | ".join([f"{s} ({p:.1%})" for s, p in pred['top_scores']]))
-        lines.append(f"")
+        lines.append(
+            "**最可能比分**: " + " | ".join([f"{s} ({p:.1%})" for s, p in pred["top_scores"]])
+        )
+        lines.append("")
 
         # 价值投注
         real_value = [vb for vb in value_bets if vb["is_value"]]
         if real_value:
-            lines.append(f"**💎 价值投注机会:**")
-            lines.append(f"")
-            lines.append(f"| 投注方向 | 市场赔率 | 模型概率 | 公平赔率 | 期望优势 |")
-            lines.append(f"|----------|----------|----------|----------|----------|")
+            lines.append("**💎 价值投注机会:**")
+            lines.append("")
+            lines.append("| 投注方向 | 市场赔率 | 模型概率 | 公平赔率 | 期望优势 |")
+            lines.append("|----------|----------|----------|----------|----------|")
             for vb in real_value:
-                lines.append(f"| **{vb['outcome']}** | {vb['market_odds']} | {vb['model_prob']:.1%} | {vb['fair_odds']} | **+{vb['edge']:.1%}** |")
-            lines.append(f"")
+                lines.append(
+                    f"| **{vb['outcome']}** | {vb['market_odds']} | {vb['model_prob']:.1%} | {vb['fair_odds']} | **+{vb['edge']:.1%}** |"
+                )
+            lines.append("")
         else:
-            lines.append(f"⚪ 无显著价值投注机会 (模型与市场一致)")
-            lines.append(f"")
+            lines.append("⚪ 无显著价值投注机会 (模型与市场一致)")
+            lines.append("")
 
         # 详细对比
-        lines.append(f"<details>")
-        lines.append(f"<summary>📊 详细对比</summary>")
-        lines.append(f"")
-        lines.append(f"| 方向 | 市场赔率 | 市场概率 | 模型概率 | 公平赔率 | Edge |")
-        lines.append(f"|------|----------|----------|----------|----------|------|")
+        lines.append("<details>")
+        lines.append("<summary>📊 详细对比</summary>")
+        lines.append("")
+        lines.append("| 方向 | 市场赔率 | 市场概率 | 模型概率 | 公平赔率 | Edge |")
+        lines.append("|------|----------|----------|----------|----------|------|")
         for vb in value_bets:
             flag = "⭐" if vb["is_value"] else ""
-            lines.append(f"| {vb['outcome']} {flag} | {vb['market_odds']} | {vb['market_implied_prob']:.1%} | {vb['model_prob']:.1%} | {vb['fair_odds']} | {vb['edge']:+.1%} |")
-        lines.append(f"")
-        lines.append(f"</details>")
-        lines.append(f"")
+            lines.append(
+                f"| {vb['outcome']} {flag} | {vb['market_odds']} | {vb['market_implied_prob']:.1%} | {vb['model_prob']:.1%} | {vb['fair_odds']} | {vb['edge']:+.1%} |"
+            )
+        lines.append("")
+        lines.append("</details>")
+        lines.append("")
 
     # ---- Part 3: 球队实力评分 ----
-    lines.append(f"## 三、球队实力评分 (基于2024-25英超赛季)")
-    lines.append(f"")
-    lines.append(f"评分逻辑: 以联赛平均进球为基准(1.0)，进攻/防守值 >1.0 表示优于平均。")
-    lines.append(f"")
-    lines.append(f"| 排名 | 球队 | 场次 | 胜/平/负 | 进球 | 失球 | 积分 | 进攻 | 防守 |")
-    lines.append(f"|------|------|------|----------|------|------|------|------|------|")
+    lines.append("## 三、球队实力评分 (基于2024-25英超赛季)")
+    lines.append("")
+    lines.append("评分逻辑: 以联赛平均进球为基准(1.0)，进攻/防守值 >1.0 表示优于平均。")
+    lines.append("")
+    lines.append("| 排名 | 球队 | 场次 | 胜/平/负 | 进球 | 失球 | 积分 | 进攻 | 防守 |")
+    lines.append("|------|------|------|----------|------|------|------|------|------|")
     sorted_teams = sorted(ratings.items(), key=lambda x: -x[1]["pts"])
     for rank, (name, r) in enumerate(sorted_teams, 1):
-        lines.append(f"| {rank} | {name} | {r['gp']} | {r['w']}/{r['d']}/{r['l']} | {r['gf']} | {r['ga']} | {r['pts']} | {r['off']:.2f} | {r['def']:.2f} |")
-    lines.append(f"")
+        lines.append(
+            f"| {rank} | {name} | {r['gp']} | {r['w']}/{r['d']}/{r['l']} | {r['gf']} | {r['ga']} | {r['pts']} | {r['off']:.2f} | {r['def']:.2f} |"
+        )
+    lines.append("")
 
     # ---- Part 4: 模型回测验证 ----
     if backtest_results and "error" not in backtest_results:
         bt = backtest_results
         lines.append(f"## 四、模型回测验证 (2024-25英超, {bt['total_matches']}场)")
-        lines.append(f"")
-        lines.append(f"| 指标 | 数值 |")
-        lines.append(f"|------|------|")
+        lines.append("")
+        lines.append("| 指标 | 数值 |")
+        lines.append("|------|------|")
         lines.append(f"| 总场次 | {bt['total_matches']} |")
         lines.append(f"| 模型准确率 | {bt['market_accuracy']:.1%} |")
         lines.append(f"| Brier Score | {bt['brier_score']:.4f} |")
         lines.append(f"| 模拟ROI | {bt['roi']:+.1%} |")
         lines.append(f"| 平均返还率 | {bt['avg_payout']:.1%} |")
-        lines.append(f"| 赛果分布 | 主 {bt['outcome_dist'].get('home', 0):.1%} / 平 {bt['outcome_dist'].get('draw', 0):.1%} / 客 {bt['outcome_dist'].get('away', 0):.1%} |")
-        lines.append(f"")
+        lines.append(
+            f"| 赛果分布 | 主 {bt['outcome_dist'].get('home', 0):.1%} / 平 {bt['outcome_dist'].get('draw', 0):.1%} / 客 {bt['outcome_dist'].get('away', 0):.1%} |"
+        )
+        lines.append("")
 
-        lines.append(f"### 按赔率分层")
-        lines.append(f"")
-        lines.append(f"| 赔率区间 | 场次 | 准确率 |")
-        lines.append(f"|----------|------|--------|")
+        lines.append("### 按赔率分层")
+        lines.append("")
+        lines.append("| 赔率区间 | 场次 | 准确率 |")
+        lines.append("|----------|------|--------|")
         for b in bt.get("by_odds_bucket", []):
             lines.append(f"| {b['bucket']} | {b['count']} | {b['accuracy']:.1%} |")
-        lines.append(f"")
+        lines.append("")
 
-        lines.append(f"### 按置信度分层")
-        lines.append(f"")
-        lines.append(f"| 置信度 | 场次 | 准确率 |")
-        lines.append(f"|--------|------|--------|")
+        lines.append("### 按置信度分层")
+        lines.append("")
+        lines.append("| 置信度 | 场次 | 准确率 |")
+        lines.append("|--------|------|--------|")
         for c in bt.get("by_confidence", []):
             lines.append(f"| {c['confidence']} | {c['count']} | {c['accuracy']:.1%} |")
-        lines.append(f"")
+        lines.append("")
 
     # ---- Part 5: 免责声明 ----
-    lines.append(f"---")
-    lines.append(f"")
-    lines.append(f"## 免责声明")
-    lines.append(f"")
-    lines.append(f"> ⚠️ 本报告仅为量化模型实验输出，**不构成任何投注建议**。")
-    lines.append(f"> 足球比赛结果受众多不可预测因素影响，过往表现不代表未来收益。")
-    lines.append(f"> 模型使用 Poisson 分布 + 球队实力评分的简化方法，实际精度有限。")
-    lines.append(f"> 请理性对待，风险自担。")
-    lines.append(f"")
+    lines.append("---")
+    lines.append("")
+    lines.append("## 免责声明")
+    lines.append("")
+    lines.append("> ⚠️ 本报告仅为量化模型实验输出，**不构成任何投注建议**。")
+    lines.append("> 足球比赛结果受众多不可预测因素影响，过往表现不代表未来收益。")
+    lines.append("> 模型使用 Poisson 分布 + 球队实力评分的简化方法，实际精度有限。")
+    lines.append("> 请理性对待，风险自担。")
+    lines.append("")
 
     return "\n".join(lines)
 
@@ -428,6 +459,7 @@ def generate_report(
 # ============================================================
 # 8. 主流程
 # ============================================================
+
 
 def main():
     print("=" * 60)
@@ -476,8 +508,16 @@ def main():
         parsed["prediction"] = pred
 
         # 队名显示
-        parsed["home_rating"] = f"{home_match} (off={ratings[home_match]['off']}, def={ratings[home_match]['def']})" if home_match else "无历史数据"
-        parsed["away_rating"] = f"{away_match} (off={ratings[away_match]['off']}, def={ratings[away_match]['def']})" if away_match else "无历史数据"
+        parsed["home_rating"] = (
+            f"{home_match} (off={ratings[home_match]['off']}, def={ratings[home_match]['def']})"
+            if home_match
+            else "无历史数据"
+        )
+        parsed["away_rating"] = (
+            f"{away_match} (off={ratings[away_match]['off']}, def={ratings[away_match]['def']})"
+            if away_match
+            else "无历史数据"
+        )
 
         # 价值投注
         value_bets = find_value_bets(parsed, pred)
@@ -492,44 +532,48 @@ def main():
     # Step 4: 当前赔率市场分析
     print("📊 当前赔率市场分析...")
     df_odds = pd.DataFrame(current_matches)
-    df_odds["raw_sum"] = 1/df_odds["home_odds"] + 1/df_odds["draw_odds"] + 1/df_odds["away_odds"]
+    df_odds["raw_sum"] = (
+        1 / df_odds["home_odds"] + 1 / df_odds["draw_odds"] + 1 / df_odds["away_odds"]
+    )
     current_odds_analysis = {
         "total_matches": len(df_odds),
-        "avg_margin": float(1 - (1/df_odds["raw_sum"]).mean()),
-        "avg_payout": float((1/df_odds["raw_sum"]).mean()),
+        "avg_margin": float(1 - (1 / df_odds["raw_sum"]).mean()),
+        "avg_payout": float((1 / df_odds["raw_sum"]).mean()),
         "market_bias": {
             "home_favored": int((df_odds["home_odds"] < df_odds["away_odds"]).sum()),
             "away_favored": int((df_odds["away_odds"] < df_odds["home_odds"]).sum()),
         },
-        "implied_home_win_pct": float(((1/df_odds["home_odds"]) / df_odds["raw_sum"]).mean()),
+        "implied_home_win_pct": float(((1 / df_odds["home_odds"]) / df_odds["raw_sum"]).mean()),
     }
-    print(f"   ✅ 完成")
+    print("   ✅ 完成")
     print()
 
     # Step 5: 合成赔率回测 (从run_live_test逻辑)
     print("📊 运行合成赔率回测...")
-    from run_live_test import build_team_strength as _bts, generate_synthetic_odds, run_analysis
+    from run_live_test import generate_synthetic_odds, run_analysis
 
     backtest_rows = []
     for fx in fixtures_parsed:
         if fx["home_goals"] is None or fx["away_goals"] is None:
             continue
-        h_odds, d_odds, a_odds = generate_synthetic_odds(
-            fx["home_team"], fx["away_team"], ratings
+        h_odds, d_odds, a_odds = generate_synthetic_odds(fx["home_team"], fx["away_team"], ratings)
+        backtest_rows.append(
+            {
+                "date": fx["date"],
+                "home_team": fx["home_team"],
+                "away_team": fx["away_team"],
+                "home_goals": fx["home_goals"],
+                "away_goals": fx["away_goals"],
+                "home_odds": h_odds,
+                "draw_odds": d_odds,
+                "away_odds": a_odds,
+            }
         )
-        backtest_rows.append({
-            "date": fx["date"],
-            "home_team": fx["home_team"],
-            "away_team": fx["away_team"],
-            "home_goals": fx["home_goals"],
-            "away_goals": fx["away_goals"],
-            "home_odds": h_odds,
-            "draw_odds": d_odds,
-            "away_odds": a_odds,
-        })
     df_bt = pd.DataFrame(backtest_rows)
     backtest_results = run_analysis(df_bt, label="2024赛季合成赔率回测")
-    print(f"   ✅ {backtest_results['total_matches']} 场回测, 准确率 {backtest_results['market_accuracy']:.1%}")
+    print(
+        f"   ✅ {backtest_results['total_matches']} 场回测, 准确率 {backtest_results['market_accuracy']:.1%}"
+    )
     print()
 
     # Step 6: 生成 MD 报告
@@ -546,10 +590,7 @@ def main():
     print()
 
     # 汇总
-    value_count = sum(
-        1 for m in current_matches
-        if any(vb["is_value"] for vb in m["value_bets"])
-    )
+    value_count = sum(1 for m in current_matches if any(vb["is_value"] for vb in m["value_bets"]))
     print("=" * 60)
     print("  ✅ 全部分析完成")
     print("=" * 60)

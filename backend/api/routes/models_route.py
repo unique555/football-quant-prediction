@@ -1,6 +1,7 @@
 """
 模型路由 — 模型列表、指标、版本
 """
+
 from fastapi import APIRouter
 
 router = APIRouter()

@@ -1,6 +1,7 @@
 """
 模型训练定时任务
 """
+
 from celery.utils.log import get_task_logger
 
 from tasks.celery_app import celery_app

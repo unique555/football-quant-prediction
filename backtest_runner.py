@@ -4,37 +4,40 @@
 将 380 场合成赛季数据逐场喂入五步管道，
 收集预测 vs 实际结果，输出准确率/ROI/Brier Score/分层分析
 """
-import sys
+
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from collections import defaultdict
-from typing import Optional
 
-from data.synthetic_season import generate_season, SyntheticMatch
+from data.synthetic_season import SyntheticMatch, generate_season
 from engine.consensus.consensus_analyzer import BookmakerSnapshot
-from engine.orchestrator.pipeline import run_full_pipeline, FinalReport, FinalVerdict
-
+from engine.orchestrator.pipeline import FinalReport, FinalVerdict, run_full_pipeline
 
 # ============================================================
 # 适配器: SyntheticMatch → 管道输入
 # ============================================================
 
+
 def match_to_bookmakers(m: SyntheticMatch) -> list[BookmakerSnapshot]:
     """将合成赔率转成管道需要的 BookmakerSnapshot"""
     snaps = []
     for o in m.odds:
-        raw = 1/o["home"] + 1/o["draw"] + 1/o["away"]
-        snaps.append(BookmakerSnapshot(
-            name=o["bookmaker"],
-            home_odds=o["home"],
-            draw_odds=o["draw"],
-            away_odds=o["away"],
-            implied_home_prob=(1/o["home"])/raw,
-            implied_draw_prob=(1/o["draw"])/raw,
-            implied_away_prob=(1/o["away"])/raw,
-            payout_rate=1/raw,
-        ))
+        raw = 1 / o["home"] + 1 / o["draw"] + 1 / o["away"]
+        snaps.append(
+            BookmakerSnapshot(
+                name=o["bookmaker"],
+                home_odds=o["home"],
+                draw_odds=o["draw"],
+                away_odds=o["away"],
+                implied_home_prob=(1 / o["home"]) / raw,
+                implied_draw_prob=(1 / o["draw"]) / raw,
+                implied_away_prob=(1 / o["away"]) / raw,
+                payout_rate=1 / raw,
+            )
+        )
     return snaps
 
 
@@ -51,10 +54,9 @@ def match_to_pipeline(m: SyntheticMatch) -> FinalReport:
     bms = match_to_bookmakers(m)
 
     # ---- 市场隐含概率 (基准) ----
-    raw = sum(1/b.home_odds + 1/b.draw_odds + 1/b.away_odds for b in bms) / len(bms)
-    mkt_home = sum(1/b.home_odds for b in bms) / len(bms) / raw
-    mkt_draw = sum(1/b.draw_odds for b in bms) / len(bms) / raw
-    mkt_away = sum(1/b.away_odds for b in bms) / len(bms) / raw
+    raw = sum(1 / b.home_odds + 1 / b.draw_odds + 1 / b.away_odds for b in bms) / len(bms)
+    mkt_home = sum(1 / b.home_odds for b in bms) / len(bms) / raw
+    mkt_away = sum(1 / b.away_odds for b in bms) / len(bms) / raw
 
     # ---- TSI 修正 ----
     tsi_gap = m.tsi_home - m.tsi_away
@@ -63,7 +65,7 @@ def match_to_pipeline(m: SyntheticMatch) -> FinalReport:
     correction_strength = 0.12  # 修正力度 (小 → 保守)
 
     # 如果 TSI 认为主队比市场更强 → 提升主队概率
-    tsi_implied_home = elo_home * 0.74 + 0.08   # ELO + 主场优势
+    tsi_implied_home = elo_home * 0.74 + 0.08  # ELO + 主场优势
     tsi_implied_away = (1 - elo_home) * 0.74
 
     # 混合: 88% 市场 + 12% TSI
@@ -77,7 +79,9 @@ def match_to_pipeline(m: SyntheticMatch) -> FinalReport:
     model_d = max(0.05, model_d / total)
     model_a = max(0.05, model_a / total)
     total2 = model_h + model_d + model_a
-    model_h /= total2; model_d /= total2; model_a /= total2
+    model_h /= total2
+    model_d /= total2
+    model_a /= total2
 
     # ---- 市场最佳赔率 ----
     best_h = min(b.home_odds for b in bms)
@@ -92,7 +96,9 @@ def match_to_pipeline(m: SyntheticMatch) -> FinalReport:
         tsi_away=m.tsi_away,
         asian_handicap=m.asian_handicap,
         initial_odds=(
-            m.odds[0]["home"], m.odds[0]["draw"], m.odds[0]["away"],
+            m.odds[0]["home"],
+            m.odds[0]["draw"],
+            m.odds[0]["away"],
         ),
         home_form_score=m.home_form,
         away_form_score=m.away_form,
@@ -112,6 +118,7 @@ def match_to_pipeline(m: SyntheticMatch) -> FinalReport:
 # ============================================================
 # 回测指标
 # ============================================================
+
 
 def run_backtest(matches: list[SyntheticMatch]) -> dict:
     """全量回测"""
@@ -141,7 +148,7 @@ def run_backtest(matches: list[SyntheticMatch]) -> dict:
 
         # 方向正确性
         pred_dir = report.recommended_direction
-        is_correct = (pred_dir == actual)
+        is_correct = pred_dir == actual
         if is_correct:
             correct += 1
 
@@ -186,8 +193,12 @@ def run_backtest(matches: list[SyntheticMatch]) -> dict:
         results.append(report)
 
         if (i + 1) % 50 == 0:
-            print(f"  进度: {i+1}/{len(matches)} ({((i+1)/len(matches)*100):.0f}%) | "
-                  f"当前准确率: {correct/(total-skipped)*100:.1f}%" if (total-skipped) > 0 else "...")
+            print(
+                f"  进度: {i + 1}/{len(matches)} ({((i + 1) / len(matches) * 100):.0f}%) | "
+                f"当前准确率: {correct / (total - skipped) * 100:.1f}%"
+                if (total - skipped) > 0
+                else "..."
+            )
 
     # ================================================================
     # 汇总
@@ -200,15 +211,18 @@ def run_backtest(matches: list[SyntheticMatch]) -> dict:
     # 分层准确率
     type_stats = {}
     for t, vals in sorted(by_type.items()):
-        type_stats[t] = {"count": len(vals), "accuracy": sum(vals)/len(vals) if vals else 0}
+        type_stats[t] = {"count": len(vals), "accuracy": sum(vals) / len(vals) if vals else 0}
 
     consensus_stats = {}
     for lvl, vals in sorted(by_consensus.items()):
-        consensus_stats[lvl] = {"count": len(vals), "accuracy": sum(vals)/len(vals) if vals else 0}
+        consensus_stats[lvl] = {
+            "count": len(vals),
+            "accuracy": sum(vals) / len(vals) if vals else 0,
+        }
 
     verdict_stats = {}
     for v, vals in sorted(by_verdict.items()):
-        verdict_stats[v] = {"count": len(vals), "accuracy": sum(vals)/len(vals) if vals else 0}
+        verdict_stats[v] = {"count": len(vals), "accuracy": sum(vals) / len(vals) if vals else 0}
 
     # 方向分布
     dir_counts = defaultdict(int)
@@ -282,7 +296,7 @@ def print_report(stats: dict):
     dd = stats["direction_distribution"]
     total_pred = sum(dd.values())
     for d, c in sorted(dd.items(), key=lambda x: -x[1]):
-        print(f"  │ {d:<10s}  {c:>3d} 次  ({c/total_pred*100:.0f}%)")
+        print(f"  │ {d:<10s}  {c:>3d} 次  ({c / total_pred * 100:.0f}%)")
     print("  └────────────────────────────────────────────")
     print()
 
@@ -296,9 +310,11 @@ def print_report(stats: dict):
         a = row.get("away", 0)
         total_row = h + d + a
         if total_row > 0:
-            print(f"  │ {pred_dir:<10s} {h:>4d}({h/total_row*100:.0f}%) "
-                  f"{d:>4d}({d/total_row*100:.0f}%) "
-                  f"{a:>4d}({a/total_row*100:.0f}%)")
+            print(
+                f"  │ {pred_dir:<10s} {h:>4d}({h / total_row * 100:.0f}%) "
+                f"{d:>4d}({d / total_row * 100:.0f}%) "
+                f"{a:>4d}({a / total_row * 100:.0f}%)"
+            )
     print("  └────────────────────────────────────────────")
     print()
 

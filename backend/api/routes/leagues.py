@@ -1,6 +1,7 @@
 """
 联赛路由 — 联赛列表、积分榜、球队
 """
+
 from fastapi import APIRouter
 
 router = APIRouter()

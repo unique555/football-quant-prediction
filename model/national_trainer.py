@@ -2,12 +2,14 @@
 国家队预测模型 — Poisson 评分, 处理 neutral 场地
 训练数据: martj42/international_results (49,493场, 1872-2026)
 """
-import pandas as pd
-import numpy as np
-from math import exp, factorial
+
+import json
+import os
 from collections import defaultdict
-import json, os
+from math import exp, factorial
 from typing import Optional
+
+import pandas as pd
 
 DATA_PATH = "/workspace/football-quant-prediction/data/international_results.csv"
 RATINGS_FILE = "/workspace/football-quant-prediction/model/team_ratings_national.json"
@@ -16,14 +18,14 @@ RATINGS_FILE = "/workspace/football-quant-prediction/model/team_ratings_national
 def poisson_pmf(lmbda: float, k: int) -> float:
     if k < 0 or lmbda <= 0:
         return 0.0
-    return exp(-lmbda) * (lmbda ** k) / factorial(k)
+    return exp(-lmbda) * (lmbda**k) / factorial(k)
 
 
 class NationalTeamRatingModel:
     """国家队实力评分模型 — 处理中立场地"""
 
     def __init__(self):
-        self.ratings = {}          # team → {off, def, gp, w, d, l, gf, ga, pts}
+        self.ratings = {}  # team → {off, def, gp, w, d, l, gf, ga, pts}
         self.home_advantage = 1.20  # 非中立场地主队优势
         self.tournament_weight = {  # 赛事权重: 重要赛事更高
             "FIFA World Cup": 1.5,
@@ -41,14 +43,24 @@ class NationalTeamRatingModel:
     def train(self, start_year: int = 2018, end_year: int = 2026):
         """训练模型 (从 martj42 CSV)"""
         df = pd.read_csv(DATA_PATH, low_memory=False)
-        
+
         # 过滤年份
         df["year"] = pd.to_datetime(df["date"]).dt.year
         df = df[(df["year"] >= start_year) & (df["year"] <= end_year)]
-        
-        teams = defaultdict(lambda: {"gf": 0, "ga": 0, "gp": 0, "w": 0, "d": 0, "l": 0,
-                                      "neutral_gp": 0, "home_gp": 0})
-        
+
+        teams = defaultdict(
+            lambda: {
+                "gf": 0,
+                "ga": 0,
+                "gp": 0,
+                "w": 0,
+                "d": 0,
+                "l": 0,
+                "neutral_gp": 0,
+                "home_gp": 0,
+            }
+        )
+
         for _, row in df.iterrows():
             home = str(row.get("home_team", ""))
             away = str(row.get("away_team", ""))
@@ -59,26 +71,34 @@ class NationalTeamRatingModel:
                 continue
             neutral = str(row.get("neutral", "")).upper() == "TRUE"
             tournament = str(row.get("tournament", ""))
-            
+
             weight = self.tournament_weight.get(tournament, 1.0)
-            
+
             for team in [home, away]:
                 if team not in teams:
-                    teams[team] = {"gf": 0, "ga": 0, "gp": 0, "w": 0, "d": 0, "l": 0,
-                                   "neutral_gp": 0, "home_gp": 0}
-            
+                    teams[team] = {
+                        "gf": 0,
+                        "ga": 0,
+                        "gp": 0,
+                        "w": 0,
+                        "d": 0,
+                        "l": 0,
+                        "neutral_gp": 0,
+                        "home_gp": 0,
+                    }
+
             teams[home]["gf"] += hg * weight
             teams[home]["ga"] += ag * weight
             teams[home]["gp"] += weight
             teams[away]["gf"] += ag * weight
             teams[away]["ga"] += hg * weight
             teams[away]["gp"] += weight
-            
+
             if neutral:
                 teams[home]["neutral_gp"] += weight
             else:
                 teams[home]["home_gp"] += weight
-            
+
             if hg > ag:
                 teams[home]["w"] += weight
                 teams[away]["l"] += weight
@@ -102,9 +122,12 @@ class NationalTeamRatingModel:
             self.ratings[name] = {
                 "off": round((s["gf"] / s["gp"]) / global_avg, 3) if s["gp"] > 0 else 1.0,
                 "def": round((s["ga"] / s["gp"]) / global_avg, 3) if s["gp"] > 0 else 1.0,
-                "gp": round(s["gp"], 1), "w": round(s["w"], 1),
-                "d": round(s["d"], 1), "l": round(s["l"], 1),
-                "gf": round(s["gf"], 1), "ga": round(s["ga"], 1),
+                "gp": round(s["gp"], 1),
+                "w": round(s["w"], 1),
+                "d": round(s["d"], 1),
+                "l": round(s["l"], 1),
+                "gf": round(s["gf"], 1),
+                "ga": round(s["ga"], 1),
                 "pts": round(s["w"] * 3 + s["d"], 1),
                 "neutral_pct": round(s["neutral_gp"] / s["gp"], 2) if s["gp"] > 0 else 0.5,
             }
@@ -154,7 +177,9 @@ class NationalTeamRatingModel:
             "p_home": round(p_home, 4),
             "p_draw": round(p_draw, 4),
             "p_away": round(p_away, 4),
-            "prediction": max([("主胜", p_home), ("平局", p_draw), ("客胜", p_away)], key=lambda x: x[1])[0],
+            "prediction": max(
+                [("主胜", p_home), ("平局", p_draw), ("客胜", p_away)], key=lambda x: x[1]
+            )[0],
             "confidence": round(max(p_home, p_draw, p_away), 4),
             "top_scores": [(s, round(p, 4)) for s, p in top_scores],
             "neutral": neutral,
@@ -167,22 +192,19 @@ class NationalTeamRatingModel:
         df = pd.read_csv(DATA_PATH, low_memory=False)
         df["year"] = pd.to_datetime(df["date"]).dt.year
         df = df[df["year"] == year]
-        
+
         correct = 0
         total = 0
         for _, row in df.iterrows():
             neutral = str(row.get("neutral", "")).upper() == "TRUE"
-            pred = self.predict(
-                str(row["home_team"]), str(row["away_team"]),
-                neutral=neutral
-            )
+            pred = self.predict(str(row["home_team"]), str(row["away_team"]), neutral=neutral)
             hg = int(row["home_score"])
             ag = int(row["away_score"])
             actual = "主胜" if hg > ag else ("平局" if hg == ag else "客胜")
             if pred["prediction"] == actual:
                 correct += 1
             total += 1
-        
+
         acc = correct / total if total > 0 else 0
         return {"year": year, "matches": total, "accuracy": acc}
 
@@ -198,10 +220,15 @@ class NationalTeamRatingModel:
 
     def _save(self):
         with open(RATINGS_FILE, "w") as f:
-            json.dump({
-                "ratings": self.ratings,
-                "home_advantage": self.home_advantage,
-            }, f, indent=2, ensure_ascii=False)
+            json.dump(
+                {
+                    "ratings": self.ratings,
+                    "home_advantage": self.home_advantage,
+                },
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
 
     def load(self):
         if os.path.exists(RATINGS_FILE):

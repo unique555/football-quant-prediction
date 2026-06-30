@@ -1,9 +1,9 @@
 """
 SQLAlchemy ORM 模型：联赛
 """
-from sqlalchemy import Column, String, Integer, DateTime, func
 
 from core.database import Base
+from sqlalchemy import Column, DateTime, Integer, String, func
 
 
 class League(Base):

@@ -4,6 +4,7 @@
 解决优化点 #6: 缺少亚盘维度分析
 亚盘市场深度远高于 1X2，升降盘/水位变化更能揭示机构真实态度
 """
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
@@ -11,18 +12,20 @@ from typing import Optional
 
 class HandicapTrend(Enum):
     """亚盘走势"""
-    UPGRADE = "upgrade"          # 升盘：机构加强信心
-    DOWNGRADE = "downgrade"      # 降盘：信心减弱
-    WATER_DROP = "water_drop"    # 盘口不变但水位下降
-    WATER_RISE = "water_rise"    # 水位上升
-    STABLE = "stable"            # 无变化
+
+    UPGRADE = "upgrade"  # 升盘：机构加强信心
+    DOWNGRADE = "downgrade"  # 降盘：信心减弱
+    WATER_DROP = "water_drop"  # 盘口不变但水位下降
+    WATER_RISE = "water_rise"  # 水位上升
+    STABLE = "stable"  # 无变化
 
 
 @dataclass
 class AsianLine:
     """单条亚盘线"""
-    handicap: float           # -1.5, -1.0, -0.75, -0.5, -0.25, 0, 0.25, ...
-    home_water: float         # 上盘水位 (0.80 = 80水)
+
+    handicap: float  # -1.5, -1.0, -0.75, -0.5, -0.25, 0, 0.25, ...
+    home_water: float  # 上盘水位 (0.80 = 80水)
     away_water: float
     bookmaker: str
 
@@ -30,6 +33,7 @@ class AsianLine:
 @dataclass
 class AsianResult:
     """亚盘分析结果"""
+
     # 主流盘口 (成交量最大的线)
     main_handicap: Optional[float] = None
     main_home_water: float = 0.0
@@ -37,8 +41,8 @@ class AsianResult:
 
     # 初盘 → 即时盘变化
     trend: HandicapTrend = HandicapTrend.STABLE
-    handicap_change: float = 0.0     # 盘口变动 (正=升盘)
-    water_change: float = 0.0        # 水位变动 (正=主队水位升)
+    handicap_change: float = 0.0  # 盘口变动 (正=升盘)
+    water_change: float = 0.0  # 水位变动 (正=主队水位升)
 
     # 机构分歧
     handicap_disagreement: float = 0.0  # 不同机构盘口标准差
@@ -115,8 +119,9 @@ def analyze_asian_handicap(
 
     # ---- 3. 机构分歧度 ----
     if len(current_lines) >= 2:
-        handicaps = [l.handicap for l in current_lines]
+        handicaps = [line.handicap for line in current_lines]
         import statistics
+
         result.handicap_disagreement = statistics.stdev(handicaps) if len(handicaps) >= 2 else 0
 
     # ---- 4. 方向信号 ----

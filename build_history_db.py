@@ -3,8 +3,12 @@
 API-Football Pro 历史数据库构建 — 2017-2024 全赛季
 单 Key, 7500次/天
 """
-import os, sys, time, json
-from datetime import datetime, timezone
+
+import json
+import os
+import sys
+import time
+
 import pandas as pd
 import requests
 
@@ -22,23 +26,44 @@ START_SEASON = 2017
 END_SEASON = 2024
 
 LEAGUES = {
-    "英超": 39, "西甲": 140, "德甲": 78, "意甲": 135, "法甲": 61,
-    "英冠": 40, "荷甲": 88, "葡超": 94, "苏超": 179, "比甲": 144,
-    "挪超": 103, "瑞典超": 113, "丹超": 119, "巴甲": 71, "美职联": 253,
-    "欧冠": 2, "欧联": 3,
+    "英超": 39,
+    "西甲": 140,
+    "德甲": 78,
+    "意甲": 135,
+    "法甲": 61,
+    "英冠": 40,
+    "荷甲": 88,
+    "葡超": 94,
+    "苏超": 179,
+    "比甲": 144,
+    "挪超": 103,
+    "瑞典超": 113,
+    "丹超": 119,
+    "巴甲": 71,
+    "美职联": 253,
+    "欧冠": 2,
+    "欧联": 3,
 }
 # ═══════════════════════════════════════════════
 
 
 def fetch_season(league_id: int, season: int) -> list[dict]:
     time.sleep(6.5)
-    r = requests.get(f"{BASE_URL}/fixtures", params={"league": league_id, "season": season},
-                     headers=HEADERS, timeout=30)
+    r = requests.get(
+        f"{BASE_URL}/fixtures",
+        params={"league": league_id, "season": season},
+        headers=HEADERS,
+        timeout=30,
+    )
     if r.status_code == 429:
         print("     ⏳ 限速, 等60s...")
         time.sleep(60)
-        r = requests.get(f"{BASE_URL}/fixtures", params={"league": league_id, "season": season},
-                        headers=HEADERS, timeout=30)
+        r = requests.get(
+            f"{BASE_URL}/fixtures",
+            params={"league": league_id, "season": season},
+            headers=HEADERS,
+            timeout=30,
+        )
 
     data = r.json()
     errs = data.get("errors", {})
@@ -51,18 +76,23 @@ def fetch_season(league_id: int, season: int) -> list[dict]:
         teams = item.get("teams", {})
         goals = item.get("goals", {})
         score = item.get("score", {})
-        rows.append({
-            "league_id": league_id, "season": season,
-            "fixture_id": f.get("id"), "date": f.get("date", ""),
-            "home_team": teams.get("home", {}).get("name", ""),
-            "away_team": teams.get("away", {}).get("name", ""),
-            "home_goals": goals.get("home"), "away_goals": goals.get("away"),
-            "ht_home_goals": score.get("halftime", {}).get("home"),
-            "ht_away_goals": score.get("halftime", {}).get("away"),
-            "status": f.get("status", {}).get("short", ""),
-            "round": item.get("league", {}).get("round", ""),
-            "referee": f.get("referee", ""),
-        })
+        rows.append(
+            {
+                "league_id": league_id,
+                "season": season,
+                "fixture_id": f.get("id"),
+                "date": f.get("date", ""),
+                "home_team": teams.get("home", {}).get("name", ""),
+                "away_team": teams.get("away", {}).get("name", ""),
+                "home_goals": goals.get("home"),
+                "away_goals": goals.get("away"),
+                "ht_home_goals": score.get("halftime", {}).get("home"),
+                "ht_away_goals": score.get("halftime", {}).get("away"),
+                "status": f.get("status", {}).get("short", ""),
+                "round": item.get("league", {}).get("round", ""),
+                "referee": f.get("referee", ""),
+            }
+        )
     return rows
 
 
@@ -72,8 +102,8 @@ def main():
         return
 
     print("=" * 60)
-    print(f"  📦 API-Football Pro 历史数据库")
-    print(f"  赛季: {START_SEASON}-{END_SEASON+1} | 联赛: {len(LEAGUES)}")
+    print("  📦 API-Football Pro 历史数据库")
+    print(f"  赛季: {START_SEASON}-{END_SEASON + 1} | 联赛: {len(LEAGUES)}")
     print(f"  Key: {API_KEY[:10]}... | Pro 7500/天")
     print("=" * 60)
 
@@ -86,7 +116,9 @@ def main():
 
     total = len(LEAGUES) * (END_SEASON - START_SEASON + 1)
     done = len(progress["done"])
-    print(f"\n📋 总: {total} | 完成: {done} | 剩余: {total-done} | 预估: ~{(total-done)*7//60}min")
+    print(
+        f"\n📋 总: {total} | 完成: {done} | 剩余: {total - done} | 预估: ~{(total - done) * 7 // 60}min"
+    )
     print()
 
     for lname, lid in LEAGUES.items():
@@ -95,7 +127,7 @@ def main():
             if key in progress["done"]:
                 continue
 
-            print(f"  ⬇️  {lname} {season}-{season+1}")
+            print(f"  ⬇️  {lname} {season}-{season + 1}")
             try:
                 rows = fetch_season(lid, season)
                 if rows:

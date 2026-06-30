@@ -6,10 +6,15 @@ football-data.org 多 Key 多线程历史数据库构建
 
 每 Key 一个线程, 各跑 10次/分钟, N Key = N倍速度
 """
-import os, json, time, threading, math
-from datetime import datetime, timezone
-from queue import Queue
-from typing import Optional
+
+import json
+import math
+import os
+import sys
+import threading
+import time
+from queue import Empty, Queue
+
 import pandas as pd
 import requests
 
@@ -33,23 +38,24 @@ SEASONS = list(range(2017, 2025))
 
 # 免费计划 12 个联赛
 COMPETITIONS = {
-    "英超":    "PL",
-    "英冠":    "ELC",
-    "德甲":    "BL1",
-    "意甲":    "SA",
-    "西甲":    "PD",
-    "法甲":    "FL1",
-    "荷甲":    "DED",
-    "葡超":    "PPL",
-    "巴甲":    "BSA",
-    "欧冠":    "CL",
-    "世界杯":  "WC",
-    "欧洲杯":  "EC",
+    "英超": "PL",
+    "英冠": "ELC",
+    "德甲": "BL1",
+    "意甲": "SA",
+    "西甲": "PD",
+    "法甲": "FL1",
+    "荷甲": "DED",
+    "葡超": "PPL",
+    "巴甲": "BSA",
+    "欧冠": "CL",
+    "世界杯": "WC",
+    "欧洲杯": "EC",
 }
 
 
 class RateLimiter:
     """每线程独立的速率控制器"""
+
     def __init__(self):
         self.lock = threading.Lock()
         self.last_request = 0
@@ -62,72 +68,87 @@ class RateLimiter:
             self.last_request = time.time()
 
 
-def fetch_matches(competition_code: str, season: int, league_name: str, 
-                   api_key: str, limiter: RateLimiter, thread_id: int) -> list[dict]:
+def fetch_matches(
+    competition_code: str,
+    season: int,
+    league_name: str,
+    api_key: str,
+    limiter: RateLimiter,
+    thread_id: int,
+) -> list[dict]:
     """拉取单赛季全部比赛"""
     headers = {"X-Auth-Token": api_key}
     date_from = f"{season}-07-01"
-    date_to = f"{season+1}-06-30"
+    date_to = f"{season + 1}-06-30"
     url = f"{BASE_URL}/competitions/{competition_code}/matches"
-    
+
     limiter.wait()
-    r = requests.get(f"{url}?dateFrom={date_from}&dateTo={date_to}", 
-                     headers=headers, timeout=30)
-    
+    r = requests.get(f"{url}?dateFrom={date_from}&dateTo={date_to}", headers=headers, timeout=30)
+
     if r.status_code == 429:
         print(f"  [T{thread_id}] ⏳ 速率限制, 等待60s...")
         time.sleep(60)
         limiter.wait()
-        r = requests.get(f"{url}?dateFrom={date_from}&dateTo={date_to}", 
-                        headers=headers, timeout=30)
-    
+        r = requests.get(
+            f"{url}?dateFrom={date_from}&dateTo={date_to}", headers=headers, timeout=30
+        )
+
     r.raise_for_status()
     data = r.json()
-    
+
     matches = []
     for m in data.get("matches", []):
         sc = get_match_score(m.get("score", {}) or {})
-        matches.append({
-            "league_name": league_name,
-            "league_code": competition_code,
-            "season": season,
-            "match_id": m.get("id"),
-            "date": m.get("utcDate", ""),
-            "status": m.get("status", ""),
-            "matchday": m.get("matchday"),
-            "home_team": m.get("homeTeam", {}).get("name", ""),
-            "away_team": m.get("awayTeam", {}).get("name", ""),
-            "home_goals": sc.get("home"),
-            "away_goals": sc.get("away"),
-            "ht_home_goals": sc.get("ht_home"),
-            "ht_away_goals": sc.get("ht_away"),
-            "stage": m.get("stage", ""),
-            "group": m.get("group", ""),
-        })
+        matches.append(
+            {
+                "league_name": league_name,
+                "league_code": competition_code,
+                "season": season,
+                "match_id": m.get("id"),
+                "date": m.get("utcDate", ""),
+                "status": m.get("status", ""),
+                "matchday": m.get("matchday"),
+                "home_team": m.get("homeTeam", {}).get("name", ""),
+                "away_team": m.get("awayTeam", {}).get("name", ""),
+                "home_goals": sc.get("home"),
+                "away_goals": sc.get("away"),
+                "ht_home_goals": sc.get("ht_home"),
+                "ht_away_goals": sc.get("ht_away"),
+                "stage": m.get("stage", ""),
+                "group": m.get("group", ""),
+            }
+        )
     return matches
 
 
-def worker(thread_id: int, api_key: str, queue: Queue, results: list, 
-           progress: dict, lock: threading.Lock, done_event: threading.Event):
+def worker(
+    thread_id: int,
+    api_key: str,
+    queue: Queue,
+    results: list,
+    progress: dict,
+    lock: threading.Lock,
+    done_event: threading.Event,
+):
     """工作线程 — 每线程独立 Key + 独立速率控制"""
     limiter = RateLimiter()
     prefix = f"[T{thread_id}]"
-    
+
     while not done_event.is_set():
         try:
             task = queue.get(timeout=3)
-        except:
+        except Empty:
             continue
-        
+
         league_name, code, season = task
         task_key = f"{code}_{season}"
-        
+
         with lock:
             if task_key in progress["done"]:
                 queue.task_done()
                 continue
-        
-        print(f"  {prefix} ⬇️  {league_name} {season}-{season+1}")
+
+        print(f"  {prefix} ⬇️  {league_name} {season}-{season + 1}")
         try:
             matches = fetch_matches(code, season, league_name, api_key, limiter, thread_id)
             with lock:
@@ -137,7 +158,7 @@ def worker(thread_id: int, api_key: str, queue: Queue, results: list,
             print(f"  {prefix} ✅ {len(matches):4d} 场 → 总计 {progress['total_fetched']:,}")
         except Exception as e:
             print(f"  {prefix} ❌ {e}")
-        
+
         queue.task_done()
 
 
@@ -170,9 +191,9 @@ def main():
     print("=" * 60)
     print("  📦 football-data.org 多线程历史数据库")
     print(f"  Key 数:  {len(API_KEYS)} → {len(API_KEYS)} 线程并发")
-    print(f"  赛季:    {SEASONS[0]}-{SEASONS[-1]+1} ({len(SEASONS)}季)")
+    print(f"  赛季:    {SEASONS[0]}-{SEASONS[-1] + 1} ({len(SEASONS)}季)")
     print(f"  联赛:    {len(COMPETITIONS)} 个")
-    print(f"  速率:    每线程 {60/RATE_INTERVAL:.0f}次/分钟")
+    print(f"  速率:    每线程 {60 / RATE_INTERVAL:.0f}次/分钟")
     total_speed = len(API_KEYS) * 60 / RATE_INTERVAL
     print(f"  总吞吐:   ~{total_speed:.0f}次/分钟")
     print("=" * 60)
@@ -209,12 +230,13 @@ def main():
     # 启动工作线程
     threads = []
     for i, key in enumerate(API_KEYS):
-        t = threading.Thread(target=worker, args=(i+1, key, queue, all_matches, 
-                                                    progress, lock, done_event))
+        t = threading.Thread(
+            target=worker, args=(i + 1, key, queue, all_matches, progress, lock, done_event)
+        )
         t.daemon = True
         t.start()
         threads.append(t)
-        print(f"  🧵 线程 {i+1} 已启动 (Key: {key[:10]}...)")
+        print(f"  🧵 线程 {i + 1} 已启动 (Key: {key[:10]}...)")
 
     # 启动保存线程
     saver = threading.Thread(target=periodic_save, args=(all_matches, lock))
@@ -240,14 +262,14 @@ def main():
 
     # 保存进度
     with open(PROGRESS_PATH, "w") as f:
-        json.dump({"done": list(progress["done"]), 
-                   "total_fetched": progress["total_fetched"]}, f)
+        json.dump({"done": list(progress["done"]), "total_fetched": progress["total_fetched"]}, f)
 
     # 汇总
     print()
     print("=" * 60)
     print("  ✅ 完成!")
     print("=" * 60)
+    print(f"  保存记录: {final_rows:,}")
     if os.path.exists(DB_PATH):
         df = pd.read_csv(DB_PATH)
         print(f"  总记录:   {len(df):,}")
@@ -258,7 +280,7 @@ def main():
         for name, grp in df.groupby("league_name"):
             print(f"  {name:6s}: {len(grp):5d} 场 ({grp['season'].nunique()} 季)")
     print(f"\n  数据库: {DB_PATH}")
-    print(f"  下次续跑: python3 build_football_data_db.py")
+    print("  下次续跑: python3 build_football_data_db.py")
 
 
 if __name__ == "__main__":

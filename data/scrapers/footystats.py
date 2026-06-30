@@ -2,6 +2,7 @@
 FootyStats 数据采集（补充 xG 数据）
 → 待实现
 """
+
 import logging
 
 logger = logging.getLogger(__name__)

@@ -3,14 +3,15 @@
 
 解决优化点: #13 数据完整性检查 + #15 输入验证
 """
+
 from dataclasses import dataclass, field
-from typing import Optional, Any
+from typing import Optional
 
 
 @dataclass
 class ValidationWarning:
     field: str
-    severity: str    # "error" | "warning" | "info"
+    severity: str  # "error" | "warning" | "info"
     message: str
 
 
@@ -18,7 +19,7 @@ class ValidationWarning:
 class InputValidationResult:
     valid: bool
     warnings: list[ValidationWarning] = field(default_factory=list)
-    data_quality_score: float = 1.0     # 数据质量评分 0-1
+    data_quality_score: float = 1.0  # 数据质量评分 0-1
     missing_critical: list[str] = field(default_factory=list)
 
 
@@ -52,8 +53,10 @@ def validate_classification_input(
             elif val > 50.0:
                 warnings.append(w(name, "warning", f"赔率异常高: {val}"))
 
-    quality = 1.0 - (0.15 * len([x for x in warnings if x.severity == "error"])
-                     + 0.05 * len([x for x in warnings if x.severity == "warning"]))
+    quality = 1.0 - (
+        0.15 * len([x for x in warnings if x.severity == "error"])
+        + 0.05 * len([x for x in warnings if x.severity == "warning"])
+    )
 
     return InputValidationResult(
         valid=all(x.severity != "error" for x in warnings),
@@ -74,15 +77,16 @@ def validate_consensus_input(
 
     if bookmaker_count < 3:
         critical.append("bookmaker_count")
-        warnings.append(w("bookmaker_count", "error",
-                          f"机构数不足 ({bookmaker_count} < 3)，分析不可靠"))
+        warnings.append(
+            w("bookmaker_count", "error", f"机构数不足 ({bookmaker_count} < 3)，分析不可靠")
+        )
     elif bookmaker_count < 5:
-        warnings.append(w("bookmaker_count", "warning",
-                          f"机构数较少 ({bookmaker_count} < 5)"))
+        warnings.append(w("bookmaker_count", "warning", f"机构数较少 ({bookmaker_count} < 5)"))
 
     # 赔率变异极端检测
     if len(odds_list) >= 2:
         import statistics
+
         try:
             cv = statistics.stdev(odds_list) / statistics.mean(odds_list)
             if cv > 0.30:
@@ -90,7 +94,9 @@ def validate_consensus_input(
         except (statistics.StatisticsError, ZeroDivisionError):
             pass
 
-    quality = 1.0 - (0.20 * len(critical) + 0.05 * len([x for x in warnings if x.severity == "warning"]))
+    quality = 1.0 - (
+        0.20 * len(critical) + 0.05 * len([x for x in warnings if x.severity == "warning"])
+    )
 
     return InputValidationResult(
         valid=len(critical) == 0,
@@ -110,5 +116,5 @@ def validate_odds_sanity(home_odds: float, draw_odds: float, away_odds: float) -
     """赔率合理性快速检查"""
     if any(o <= 1.0 for o in [home_odds, draw_odds, away_odds]):
         return False
-    raw = 1/home_odds + 1/draw_odds + 1/away_odds
+    raw = 1 / home_odds + 1 / draw_odds + 1 / away_odds
     return 0.85 <= raw <= 1.25  # 合理返还率范围

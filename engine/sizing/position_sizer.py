@@ -4,25 +4,26 @@
 解决优化点 #8: 缺少投注仓位管理
 量化系统核心: 方向 × 仓位 = 期望收益
 """
+
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
 class PositionSizingResult:
     """仓位建议"""
+
     # Kelly 原始
-    kelly_fraction: float = 0.0           # 原始 Kelly 比例
+    kelly_fraction: float = 0.0  # 原始 Kelly 比例
     # 实际建议仓位 (加入风控层)
-    recommended_fraction: float = 0.0      # 建议资金比例 (0-1)
+    recommended_fraction: float = 0.0  # 建议资金比例 (0-1)
     recommended_kelly_multiplier: float = 0.25  # 使用的 Kelly 倍数
 
     # 风险参数
-    max_drawdown_limit: float = 0.10       # 最大回撤限制
-    current_risk_budget: float = 1.0       # 当前风险预算
+    max_drawdown_limit: float = 0.10  # 最大回撤限制
+    current_risk_budget: float = 1.0  # 当前风险预算
 
     # 分类
-    sizing_label: str = "skip"             # "max" | "half" | "quarter" | "minimum" | "skip"
+    sizing_label: str = "skip"  # "max" | "half" | "quarter" | "minimum" | "skip"
     notes: list[str] = field(default_factory=list)
 
 
@@ -30,9 +31,9 @@ def calculate_kelly(
     estimated_prob: float,
     odds: float,
     bankroll: float = 1.0,
-    max_fraction: float = 0.10,            # 单笔最大 10%
-    kelly_multiplier: float = 0.25,        # 1/4 Kelly 保守
-    edge_threshold: float = 0.02,          # 至少 2% 优势才下注
+    max_fraction: float = 0.10,  # 单笔最大 10%
+    kelly_multiplier: float = 0.25,  # 1/4 Kelly 保守
+    edge_threshold: float = 0.02,  # 至少 2% 优势才下注
 ) -> PositionSizingResult:
     """
     Kelly 仓位计算
@@ -98,10 +99,11 @@ def calculate_kelly(
 # 场景化 Kelly 调整
 # ============================================================
 
+
 def scene_adjusted_kelly(
     base_fraction: float,
-    match_type: str,             # 来自 Step 1
-    consensus_level: str,        # 来自 Step 2
+    match_type: str,  # 来自 Step 1
+    consensus_level: str,  # 来自 Step 2
     is_derby: bool = False,
 ) -> float:
     """
@@ -117,9 +119,9 @@ def scene_adjusted_kelly(
         "strong_favorite": 1.0,
         "moderate_favorite": 0.8,
         "even_contest": 0.6,
-        "upset_risk": 0.3,          # 大幅降仓
+        "upset_risk": 0.3,  # 大幅降仓
         "derby_special": 0.4,
-        "value_trap": 0.0,           # 直接归零
+        "value_trap": 0.0,  # 直接归零
     }
     multiplier *= type_adjustments.get(match_type, 0.5)
 

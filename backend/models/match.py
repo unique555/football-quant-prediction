@@ -1,9 +1,9 @@
 """
 SQLAlchemy ORM 模型：比赛
 """
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, func
 
 from core.database import Base
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
 
 
 class Match(Base):

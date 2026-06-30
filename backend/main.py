@@ -1,13 +1,13 @@
 """
 FastAPI 应用入口
 """
+
 from contextlib import asynccontextmanager
 
+from api.routes import backtest, leagues, matches, models_route, odds, predict
+from core.config import settings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from core.config import settings
-from api.routes import predict, leagues, matches, odds, backtest, models_route
 
 
 @asynccontextmanager

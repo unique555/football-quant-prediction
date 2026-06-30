@@ -4,16 +4,22 @@
   from notify import send
   send("预测完成: France vs Sweden → 主胜 53%")
 """
-import os, json, requests, time, sys
+
+import json
+import os
+import sys
+import time
+
+import requests
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import config  # 触发 .env 加载
 
 # ── 从环境变量读取配置 ──
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")          # 通用 webhook (飞书/钉钉/自定义)
-WECHAT_APPID = os.getenv("WECHAT_APPID", "")         # 微信公众号 AppID (预留)
-WECHAT_SECRET = os.getenv("WECHAT_SECRET", "")       # 微信公众号 Secret (预留)
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")  # 通用 webhook (飞书/钉钉/自定义)
+WECHAT_APPID = os.getenv("WECHAT_APPID", "")  # 微信公众号 AppID (预留)
+WECHAT_SECRET = os.getenv("WECHAT_SECRET", "")  # 微信公众号 Secret (预留)
 
 # ── 缓存 ──
 _last_send = 0
@@ -42,8 +48,15 @@ def send_file(filepath: str, caption: str = "") -> dict:
         _rate_limit()
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument"
         with open(filepath, "rb") as f:
-            r = requests.post(url, data={"chat_id": TELEGRAM_CHAT_ID, "caption": caption or os.path.basename(filepath)},
-                            files={"document": f}, timeout=30)
+            r = requests.post(
+                url,
+                data={
+                    "chat_id": TELEGRAM_CHAT_ID,
+                    "caption": caption or os.path.basename(filepath),
+                },
+                files={"document": f},
+                timeout=30,
+            )
         results["telegram"] = {"status": r.status_code, "ok": r.json().get("ok", False)}
 
     return results
@@ -59,9 +72,11 @@ def send_md_report(md_text: str, title: str = "") -> dict:
 
     # Telegram MarkdownV2 转义
     import re
-    esc_chars = r'_*[]()~`>#+-=|{}.!'
+
+    esc_chars = r"_*[]()~`>#+-=|{}.!"
+
     def esc(text):
-        return re.sub(f'([{re.escape(esc_chars)}])', r'\\\\\\1', text)
+        return re.sub(f"([{re.escape(esc_chars)}])", r"\\\\\\1", text)
 
     # 限制长度 (Telegram 限制 4096 字符)
     if len(md_text) > 3800:
@@ -71,27 +86,36 @@ def send_md_report(md_text: str, title: str = "") -> dict:
     msg = title_line + md_text
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    r = requests.post(url, json={
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": msg,
-        "parse_mode": "MarkdownV2",
-        "disable_web_page_preview": True,
-    }, timeout=15)
+    r = requests.post(
+        url,
+        json={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": msg,
+            "parse_mode": "MarkdownV2",
+            "disable_web_page_preview": True,
+        },
+        timeout=15,
+    )
 
     return {"status": r.status_code, "ok": r.json().get("ok", False)}
 
 
 # ── 内部实现 ──
 
+
 def _send_telegram(msg: str, disable_preview: bool = True) -> dict:
     global _last_send
     _rate_limit()
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    r = requests.post(url, json={
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": msg,
-        "disable_web_page_preview": disable_preview,
-    }, timeout=15)
+    r = requests.post(
+        url,
+        json={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": msg,
+            "disable_web_page_preview": disable_preview,
+        },
+        timeout=15,
+    )
     resp = r.json()
     if not resp.get("ok"):
         print(f"  ⚠️ Telegram 发送失败: {resp.get('description', '?')}")
@@ -101,10 +125,14 @@ def _send_telegram(msg: str, disable_preview: bool = True) -> dict:
 def _send_webhook(msg: str) -> dict:
     """通用 webhook (飞书/钉钉格式: {"msgtype":"text","text":{"content":"..."}})"""
     try:
-        r = requests.post(WEBHOOK_URL, json={
-            "msgtype": "text",
-            "text": {"content": f"[Football-Q] {msg}"},
-        }, timeout=15)
+        r = requests.post(
+            WEBHOOK_URL,
+            json={
+                "msgtype": "text",
+                "text": {"content": f"[Football-Q] {msg}"},
+            },
+            timeout=15,
+        )
         return {"status": r.status_code}
     except Exception as e:
         return {"error": str(e)}
@@ -119,6 +147,7 @@ def _rate_limit():
 
 
 # ── 状态查询 ──
+
 
 def status() -> dict:
     return {

@@ -2,10 +2,10 @@
 通用 HTTP 客户端 — 带重试、速率限制、错误处理
 所有 scraper 统一使用此客户端
 """
-import time
+
 import logging
-from typing import Optional, Any
-from urllib.parse import urlencode
+import time
+from typing import Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class RateLimiter:
     """简易速率限制器"""
+
     def __init__(self, calls_per_minute: int = 30):
         self.min_interval = 60.0 / calls_per_minute
         self._last_call = 0.0
@@ -58,7 +59,9 @@ class APIClient:
         url = f"{self.base_url}/{path.lstrip('/')}"
         try:
             resp = self.session.get(
-                url, params=params, timeout=self.timeout,
+                url,
+                params=params,
+                timeout=self.timeout,
                 headers=self._headers(),
             )
             resp.raise_for_status()

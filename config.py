@@ -2,7 +2,9 @@
 全局配置 — 所有 Key 从环境变量或 .env 文件读取
 用法: cp .env.example .env → 编辑 .env → 正常运行
 """
+
 import os
+
 
 # 自动加载 .env 文件
 def _load_dotenv():
@@ -16,6 +18,7 @@ def _load_dotenv():
                 key, _, value = line.partition("=")
                 if key and value and key not in os.environ:
                     os.environ[key.strip()] = value.strip().strip('"').strip("'")
+
 
 _load_dotenv()
 

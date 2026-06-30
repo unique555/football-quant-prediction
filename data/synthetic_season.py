@@ -9,10 +9,10 @@
 - 赔率符合真实市场分布
 - 各机构赔率有合理方差
 """
-import random
+
 import math
-from dataclasses import dataclass, field
-from typing import Optional
+import random
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 random.seed(42)  # 可复现
@@ -45,13 +45,24 @@ TEAMS = [
 ]
 
 # 博彩公司名称
-BOOKMAKERS = ["bet365", "pinnacle", "william_hill", "betfair", "betway",
-              "1xbet", "unibet", "bwin", "sbobet", "marathon"]
+BOOKMAKERS = [
+    "bet365",
+    "pinnacle",
+    "william_hill",
+    "betfair",
+    "betway",
+    "1xbet",
+    "unibet",
+    "bwin",
+    "sbobet",
+    "marathon",
+]
 
 
 @dataclass
 class SyntheticMatch:
     """合成比赛数据"""
+
     # 比赛信息
     match_id: int
     date: str
@@ -70,7 +81,7 @@ class SyntheticMatch:
     away_goals: int
 
     # 赔率 (多家机构)
-    odds: list[dict]   # [{"bookmaker": "bet365", "home": 1.85, "draw": 3.60, "away": 4.20}, ...]
+    odds: list[dict]  # [{"bookmaker": "bet365", "home": 1.85, "draw": 3.60, "away": 4.20}, ...]
 
     # 亚盘 (取平均)
     asian_handicap: float = 0.0
@@ -107,10 +118,15 @@ def _tsi_for(name: str) -> tuple:
     return (name, 65, 65, 65, 1.05)
 
 
-def _simulate_goals(home_tsi: float, away_tsi: float,
-                    home_att: float, away_att: float,
-                    home_def: float, away_def: float,
-                    home_bonus: float) -> tuple[int, int]:
+def _simulate_goals(
+    home_tsi: float,
+    away_tsi: float,
+    home_att: float,
+    away_att: float,
+    home_def: float,
+    away_def: float,
+    home_bonus: float,
+) -> tuple[int, int]:
     """基于泊松分布模拟进球（调整为真实联赛水平 ~2.7球/场）"""
     # 基准进球期望（英超 ~1.4主队 / ~1.3客队）
     league_base_home = 1.55
@@ -135,9 +151,9 @@ def _simulate_goals(home_tsi: float, away_tsi: float,
     return home_goals, away_goals
 
 
-def _generate_odds(home_goals: int, away_goals: int,
-                   home_tsi: float, away_tsi: float,
-                   home_bonus: float) -> list[dict]:
+def _generate_odds(
+    home_goals: int, away_goals: int, home_tsi: float, away_tsi: float, home_bonus: float
+) -> list[dict]:
     """
     根据实力差距生成合理的赔率
 
@@ -162,7 +178,6 @@ def _generate_odds(home_goals: int, away_goals: int,
     total = base_home + base_draw + base_away
     fair_p_home = base_home / total
     fair_p_draw = base_draw / total
-    fair_p_away = base_away / total
 
     odds_list = []
     for bm_name in BOOKMAKERS:
@@ -183,12 +198,14 @@ def _generate_odds(home_goals: int, away_goals: int,
         # 赔率 = 1/概率 × margin
         margin = random.uniform(0.92, 0.96)  # 返还率
 
-        odds_list.append({
-            "bookmaker": bm_name,
-            "home": round(1.0 / (p_h * (1 / margin)), 2),
-            "draw": round(1.0 / (p_d * (1 / margin)), 2),
-            "away": round(1.0 / (p_a * (1 / margin)), 2),
-        })
+        odds_list.append(
+            {
+                "bookmaker": bm_name,
+                "home": round(1.0 / (p_h * (1 / margin)), 2),
+                "draw": round(1.0 / (p_d * (1 / margin)), 2),
+                "away": round(1.0 / (p_a * (1 / margin)), 2),
+            }
+        )
 
     return odds_list
 
@@ -284,23 +301,31 @@ def generate_season() -> list[SyntheticMatch]:
                 handicap = _asian_from_odds(odds)
 
                 derby_pairs = [
-                    {"Arsenal", "Tottenham"}, {"Man United", "Man City"},
-                    {"Liverpool", "Everton"}, {"Chelsea", "Arsenal"},
+                    {"Arsenal", "Tottenham"},
+                    {"Man United", "Man City"},
+                    {"Liverpool", "Everton"},
+                    {"Chelsea", "Arsenal"},
                 ]
                 is_derby = {home_name, away_name} in derby_pairs
 
-                matches.append(SyntheticMatch(
-                    match_id=match_id,
-                    date=match_date.strftime("%Y-%m-%d"),
-                    home_team=home_name,
-                    away_team=away_name,
-                    league_round=round_num,
-                    tsi_home=tsi_h, tsi_away=tsi_a,
-                    home_form=home_form, away_form=away_form,
-                    home_goals=hg, away_goals=ag,
-                    odds=odds, asian_handicap=handicap,
-                    is_derby=is_derby,
-                ))
+                matches.append(
+                    SyntheticMatch(
+                        match_id=match_id,
+                        date=match_date.strftime("%Y-%m-%d"),
+                        home_team=home_name,
+                        away_team=away_name,
+                        league_round=round_num,
+                        tsi_home=tsi_h,
+                        tsi_away=tsi_a,
+                        home_form=home_form,
+                        away_form=away_form,
+                        home_goals=hg,
+                        away_goals=ag,
+                        odds=odds,
+                        asian_handicap=handicap,
+                        is_derby=is_derby,
+                    )
+                )
 
             # Rotate for next round (circle method)
             teams = [teams[0]] + [teams[-1]] + teams[1:-1]
@@ -315,8 +340,8 @@ if __name__ == "__main__":
     home_wins = sum(1 for m in season if m.actual_outcome == "home")
     draws = sum(1 for m in season if m.actual_outcome == "draw")
     away_wins = sum(1 for m in season if m.actual_outcome == "away")
-    print(f"Home: {home_wins} ({home_wins/len(season):.1%})")
-    print(f"Draw: {draws} ({draws/len(season):.1%})")
-    print(f"Away: {away_wins} ({away_wins/len(season):.1%})")
-    print(f"Avg goals: {sum(m.home_goals+m.away_goals for m in season)/len(season):.2f}")
+    print(f"Home: {home_wins} ({home_wins / len(season):.1%})")
+    print(f"Draw: {draws} ({draws / len(season):.1%})")
+    print(f"Away: {away_wins} ({away_wins / len(season):.1%})")
+    print(f"Avg goals: {sum(m.home_goals + m.away_goals for m in season) / len(season):.2f}")
     print(f"\nSample match: {season[0]}")

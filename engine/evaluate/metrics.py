@@ -2,13 +2,14 @@
 评估指标
 → 待实现
 """
+
 from sklearn.metrics import (
     accuracy_score,
+    brier_score_loss,
+    f1_score,
+    log_loss,
     precision_score,
     recall_score,
-    f1_score,
-    brier_score_loss,
-    log_loss,
 )
 
 

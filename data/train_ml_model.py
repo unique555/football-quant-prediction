@@ -4,21 +4,22 @@ ML 模型训练: 独立概率估计
 用历史数据训练 LightGBM，输出与市场赔率「独立」的预测概率
 这个概率是五步管道 Step 4 定价检测的关键输入
 """
-import pandas as pd
-import numpy as np
+
+import os
 import pickle
 import warnings
-from sklearn.model_selection import TimeSeriesSplit
-from sklearn.metrics import accuracy_score, log_loss, brier_score_loss
-from sklearn.preprocessing import StandardScaler
-import lightgbm as lgb
 
-warnings.filterwarnings('ignore')
+import lightgbm as lgb
+import pandas as pd
+from sklearn.metrics import accuracy_score, brier_score_loss, log_loss
+from sklearn.preprocessing import StandardScaler
+
+warnings.filterwarnings("ignore")
 
 
 def load_training_data() -> pd.DataFrame:
-    df = pd.read_csv('/workspace/football-quant-prediction/data/training_set.csv')
-    df['match_id'] = range(len(df))
+    df = pd.read_csv("/workspace/football-quant-prediction/data/training_set.csv")
+    df["match_id"] = range(len(df))
     return df
 
 
@@ -27,27 +28,27 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     X = pd.DataFrame()
 
     # ---- ELO ----
-    X['elo_home'] = df['elo_home']
-    X['elo_away'] = df['elo_away']
-    X['elo_gap'] = df['elo_gap']
-    X['elo_gap_abs'] = df['elo_gap'].abs()
+    X["elo_home"] = df["elo_home"]
+    X["elo_away"] = df["elo_away"]
+    X["elo_gap"] = df["elo_gap"]
+    X["elo_gap_abs"] = df["elo_gap"].abs()
 
     # ---- 近期状态 ----
-    X['home_gf_last5'] = df['home_gf_last5']
-    X['home_ga_last5'] = df['home_ga_last5']
-    X['away_gf_last5'] = df['away_gf_last5']
-    X['away_ga_last5'] = df['away_ga_last5']
-    X['home_pts_last5'] = df['home_pts_last5']
-    X['away_pts_last5'] = df['away_pts_last5']
+    X["home_gf_last5"] = df["home_gf_last5"]
+    X["home_ga_last5"] = df["home_ga_last5"]
+    X["away_gf_last5"] = df["away_gf_last5"]
+    X["away_ga_last5"] = df["away_ga_last5"]
+    X["home_pts_last5"] = df["home_pts_last5"]
+    X["away_pts_last5"] = df["away_pts_last5"]
 
     # ---- 交叉特征 ----
-    X['gf_diff'] = df['home_gf_last5'] - df['away_ga_last5']
-    X['ga_diff'] = df['home_ga_last5'] - df['away_gf_last5']
-    X['form_diff'] = df['home_pts_last5'] - df['away_pts_last5']
+    X["gf_diff"] = df["home_gf_last5"] - df["away_ga_last5"]
+    X["ga_diff"] = df["home_ga_last5"] - df["away_gf_last5"]
+    X["form_diff"] = df["home_pts_last5"] - df["away_pts_last5"]
 
     # ---- ELO × 状态交互 ----
-    X['elo_times_form'] = df['elo_gap'] * (df['home_pts_last5'] - df['away_pts_last5'])
-    X['elo_times_gf'] = df['elo_gap'] * df['home_gf_last5']
+    X["elo_times_form"] = df["elo_gap"] * (df["home_pts_last5"] - df["away_pts_last5"])
+    X["elo_times_gf"] = df["elo_gap"] * df["home_gf_last5"]
 
     # ---- 标准化 ----
     scaler = StandardScaler()
@@ -66,8 +67,8 @@ def train_model(df: pd.DataFrame):
     print()
 
     # 按时间分割: 2014-2021 训练, 2022-2024 测试
-    train_mask = df['season'] <= 2021
-    test_mask = df['season'] >= 2022
+    train_mask = df["season"] <= 2021
+    test_mask = df["season"] >= 2022
 
     df_train = df[train_mask].copy()
     df_test = df[test_mask].copy()
@@ -81,9 +82,9 @@ def train_model(df: pd.DataFrame):
     X_test, _ = build_features(df_test)
 
     # 标签
-    outcome_map = {'home': 0, 'draw': 1, 'away': 2}
-    y_train = df_train['outcome'].map(outcome_map)
-    y_test = df_test['outcome'].map(outcome_map)
+    outcome_map = {"home": 0, "draw": 1, "away": 2}
+    y_train = df_train["outcome"].map(outcome_map)
+    y_test = df_test["outcome"].map(outcome_map)
 
     # 类别权重 (平衡三类)
     counts = y_train.value_counts().sort_index()
@@ -122,15 +123,17 @@ def train_model(df: pd.DataFrame):
     print()
 
     # 随机基线
-    print(f"随机基线准确率: {1/3:.1%}")
-    print(f"模型超出基线:   {acc - 1/3:+.1%}")
+    print(f"随机基线准确率: {1 / 3:.1%}")
+    print(f"模型超出基线:   {acc - 1 / 3:+.1%}")
     print()
 
     # ---- 特征重要性 ----
-    importance = pd.DataFrame({
-        'feature': X_train.columns,
-        'importance': model.feature_importances_,
-    }).sort_values('importance', ascending=False)
+    importance = pd.DataFrame(
+        {
+            "feature": X_train.columns,
+            "importance": model.feature_importances_,
+        }
+    ).sort_values("importance", ascending=False)
     print("特征重要性 TOP 10:")
     for _, row in importance.head(10).iterrows():
         print(f"  {row['feature']:<25s} {row['importance']:.4f}")
@@ -139,62 +142,83 @@ def train_model(df: pd.DataFrame):
     # ---- 校准分析 ----
     # 预测概率 vs 实际频率
     print("概率校准 (预测概率 → 实际频率):")
-    for i, label in enumerate(['Home', 'Draw', 'Away']):
+    for i, label in enumerate(["Home", "Draw", "Away"]):
         prob_bins = pd.cut(y_proba[:, i], bins=5)
-        grouped = pd.DataFrame({
-            'prob_bin': prob_bins,
-            'actual': (y_test == i).astype(int),
-        }).groupby('prob_bin', observed=False)['actual'].agg(['mean', 'count'])
+        grouped = (
+            pd.DataFrame(
+                {
+                    "prob_bin": prob_bins,
+                    "actual": (y_test == i).astype(int),
+                }
+            )
+            .groupby("prob_bin", observed=False)["actual"]
+            .agg(["mean", "count"])
+        )
         print(f"  {label}:")
 
         for bin_name, row in grouped.iterrows():
-            if row['count'] > 5:
-                print(f"    {bin_name}: pred≈{bin_name.mid:.2f} → actual={row['mean']:.2%} (n={int(row['count'])})")
+            if row["count"] > 5:
+                print(
+                    f"    {bin_name}: pred≈{bin_name.mid:.2f} → actual={row['mean']:.2%} (n={int(row['count'])})"
+                )
     print()
 
-    return model, scaler, outcome_map, {
-        'accuracy': acc,
-        'log_loss': logloss,
-        'brier': brier,
-        'importance': importance,
-        'y_test': y_test,
-        'y_proba': y_proba,
-        'df_test': df_test,
-    }
+    return (
+        model,
+        scaler,
+        outcome_map,
+        {
+            "accuracy": acc,
+            "log_loss": logloss,
+            "brier": brier,
+            "importance": importance,
+            "y_test": y_test,
+            "y_proba": y_proba,
+            "df_test": df_test,
+        },
+    )
 
 
 def save_model(model, scaler, outcome_map):
     """保存模型"""
     import joblib
-    os.makedirs('/workspace/football-quant-prediction/models_store', exist_ok=True)
 
-    joblib.dump(model, '/workspace/football-quant-prediction/models_store/lgb_model.joblib')
-    joblib.dump(scaler, '/workspace/football-quant-prediction/models_store/scaler.joblib')
-    with open('/workspace/football-quant-prediction/models_store/outcome_map.pkl', 'wb') as f:
+    os.makedirs("/workspace/football-quant-prediction/models_store", exist_ok=True)
+
+    joblib.dump(model, "/workspace/football-quant-prediction/models_store/lgb_model.joblib")
+    joblib.dump(scaler, "/workspace/football-quant-prediction/models_store/scaler.joblib")
+    with open("/workspace/football-quant-prediction/models_store/outcome_map.pkl", "wb") as f:
         pickle.dump(outcome_map, f)
     print("✅ Model saved to models_store/")
 
 
 def predict_proba(model, scaler, outcome_map, row: dict) -> tuple[float, float, float]:
     """单行预测 → (home_prob, draw_prob, away_prob)"""
-    features = pd.DataFrame([{
-        'elo_home': row['elo_home'], 'elo_away': row['elo_away'],
-        'elo_gap': row['elo_gap'], 'elo_gap_abs': abs(row['elo_gap']),
-        'home_gf_last5': row['home_gf_last5'], 'home_ga_last5': row['home_ga_last5'],
-        'away_gf_last5': row['away_gf_last5'], 'away_ga_last5': row['away_ga_last5'],
-        'home_pts_last5': row['home_pts_last5'], 'away_pts_last5': row['away_pts_last5'],
-        'gf_diff': row['home_gf_last5'] - row['away_ga_last5'],
-        'ga_diff': row['home_ga_last5'] - row['away_gf_last5'],
-        'form_diff': row['home_pts_last5'] - row['away_pts_last5'],
-        'elo_times_form': row['elo_gap'] * (row['home_pts_last5'] - row['away_pts_last5']),
-        'elo_times_gf': row['elo_gap'] * row['home_gf_last5'],
-    }])
+    features = pd.DataFrame(
+        [
+            {
+                "elo_home": row["elo_home"],
+                "elo_away": row["elo_away"],
+                "elo_gap": row["elo_gap"],
+                "elo_gap_abs": abs(row["elo_gap"]),
+                "home_gf_last5": row["home_gf_last5"],
+                "home_ga_last5": row["home_ga_last5"],
+                "away_gf_last5": row["away_gf_last5"],
+                "away_ga_last5": row["away_ga_last5"],
+                "home_pts_last5": row["home_pts_last5"],
+                "away_pts_last5": row["away_pts_last5"],
+                "gf_diff": row["home_gf_last5"] - row["away_ga_last5"],
+                "ga_diff": row["home_ga_last5"] - row["away_gf_last5"],
+                "form_diff": row["home_pts_last5"] - row["away_pts_last5"],
+                "elo_times_form": row["elo_gap"] * (row["home_pts_last5"] - row["away_pts_last5"]),
+                "elo_times_gf": row["elo_gap"] * row["home_gf_last5"],
+            }
+        ]
+    )
     features_scaled = scaler.transform(features)
     proba = model.predict_proba(features_scaled)[0]
     return float(proba[0]), float(proba[1]), float(proba[2])
 
-
-import os
 
 if __name__ == "__main__":
     df = load_training_data()

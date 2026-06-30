@@ -4,14 +4,16 @@
 解决优化点: #10 反馈闭环 + #18 残差分析
 每场比赛赛后自动摄取结果，计算预测残差，按联赛/类型/共识分层分析偏差
 """
+
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 from enum import Enum
+from typing import Optional
 
 
 class OutcomeDirection(Enum):
     """实际结果方向"""
+
     HOME = "home"
     DRAW = "draw"
     AWAY = "away"
@@ -20,10 +22,11 @@ class OutcomeDirection(Enum):
 @dataclass
 class PredictionRecord:
     """单次预测记录"""
+
     timestamp: datetime
     match_id: str
     league: str
-    match_type: str                 # 来自 Step 1
+    match_type: str  # 来自 Step 1
 
     # 预测
     pred_home_prob: float
@@ -40,12 +43,13 @@ class PredictionRecord:
     # 实际结果 (赛后填充)
     actual_outcome: Optional[OutcomeDirection] = None
     was_correct: Optional[bool] = None
-    brier_score: Optional[float] = None       # 单场 Brier score
+    brier_score: Optional[float] = None  # 单场 Brier score
 
 
 @dataclass
 class ResidualReport:
     """残差分析报告"""
+
     total_predictions: int = 0
     overall_accuracy: float = 0.0
     overall_brier: float = 0.0
@@ -86,7 +90,9 @@ def record_outcome(match_id: str, actual: OutcomeDirection) -> Optional[Predicti
 
 
 def compute_brier_score(
-    pred_home: float, pred_draw: float, pred_away: float,
+    pred_home: float,
+    pred_draw: float,
+    pred_away: float,
     actual: OutcomeDirection,
 ) -> float:
     """
@@ -98,11 +104,7 @@ def compute_brier_score(
     actual_vec = {"home": (1, 0, 0), "draw": (0, 1, 0), "away": (0, 0, 1)}
     a_h, a_d, a_w = actual_vec[actual.value]
 
-    bs = (
-        (pred_home - a_h) ** 2
-        + (pred_draw - a_d) ** 2
-        + (pred_away - a_w) ** 2
-    ) / 3
+    bs = ((pred_home - a_h) ** 2 + (pred_draw - a_d) ** 2 + (pred_away - a_w) ** 2) / 3
 
     return bs
 
@@ -165,10 +167,10 @@ def analyze_residuals(records: list[PredictionRecord]) -> ResidualReport:
 
     # 共识层级验证
     levels_order = ["strong", "moderate", "weak", "divergent"]
-    accs = [report.by_consensus.get(l, {}).get("accuracy", 0) for l in levels_order]
+    accs = [report.by_consensus.get(level, {}).get("accuracy", 0) for level in levels_order]
     # 检查是否有越级（高共识不如低共识准确）
     for i in range(len(accs) - 1):
-        if accs[i] > 0 and accs[i+1] > 0 and accs[i] < accs[i+1]:
-            report.findings.append(f"⚠️ 共识等级颠倒: {levels_order[i]} < {levels_order[i+1]}")
+        if accs[i] > 0 and accs[i + 1] > 0 and accs[i] < accs[i + 1]:
+            report.findings.append(f"⚠️ 共识等级颠倒: {levels_order[i]} < {levels_order[i + 1]}")
 
     return report

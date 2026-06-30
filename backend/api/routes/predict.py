@@ -1,6 +1,7 @@
 """
 预测路由 — 单场 & 批量预测
 """
+
 from fastapi import APIRouter
 
 router = APIRouter()

@@ -1,9 +1,9 @@
 """
 SQLAlchemy ORM 模型：用户
 """
-from sqlalchemy import Column, String, Integer, DateTime, func
 
 from core.database import Base
+from sqlalchemy import Column, DateTime, Integer, String, func
 
 
 class User(Base):

@@ -1,6 +1,7 @@
 """
 日报/周报生成任务
 """
+
 from celery.utils.log import get_task_logger
 
 from tasks.celery_app import celery_app

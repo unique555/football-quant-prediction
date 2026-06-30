@@ -12,42 +12,57 @@
   #17 赛事阶段维度
   #19 信号衰减
 """
+
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Optional
-from datetime import datetime
 
-from engine.config.settings import engine_config, SynthesisConfig
-from engine.classifier.match_classifier import (
-    classify_match, MatchType, MatchPhase, ClassificationResult,
-)
-from engine.consensus.consensus_analyzer import (
-    analyze_consensus, ConsensusLevel, MarketDirection,
-    ConsensusResult, BookmakerSnapshot,
-)
-from engine.validator.index_validator import (
-    validate_with_indexes, ValidationVerdict, ValidationResult,
-)
-from engine.pricing.pricing_checker import (
-    check_market_pricing, PricingVerdict, PricingResult,
-)
-from engine.clv.clv_tracker import (
-    analyze_clv, CLVResult, OddsSnapshot,
-)
 from engine.asian.asian_analyzer import (
-    analyze_asian_handicap, AsianResult, AsianLine,
-)
-from engine.sizing.position_sizer import (
-    calculate_kelly, scene_adjusted_kelly, PositionSizingResult,
+    AsianLine,
+    AsianResult,
+    analyze_asian_handicap,
 )
 from engine.calibration.league_calibrator import (
-    calibrate_by_league, CalibratedProbabilities, get_league_priors,
+    CalibratedProbabilities,
+    calibrate_by_league,
+    get_league_priors,
+)
+from engine.classifier.match_classifier import (
+    ClassificationResult,
+    MatchType,
+    classify_match,
+)
+from engine.clv.clv_tracker import (
+    CLVResult,
+    OddsSnapshot,
+    analyze_clv,
+)
+from engine.config.settings import SynthesisConfig, engine_config
+from engine.consensus.consensus_analyzer import (
+    BookmakerSnapshot,
+    ConsensusResult,
+    analyze_consensus,
 )
 from engine.input_validator import (
-    validate_classification_input, validate_consensus_input,
-    validate_odds_sanity,
+    validate_classification_input,
+    validate_consensus_input,
 )
-from engine.feedback.prediction_feedback import PredictionRecord
+from engine.pricing.pricing_checker import (
+    PricingResult,
+    PricingVerdict,
+    check_market_pricing,
+)
+from engine.sizing.position_sizer import (
+    PositionSizingResult,
+    calculate_kelly,
+    scene_adjusted_kelly,
+)
+from engine.validator.index_validator import (
+    ValidationResult,
+    ValidationVerdict,
+    validate_with_indexes,
+)
 
 
 class FinalVerdict(Enum):
@@ -63,8 +78,8 @@ class StepReport:
     step: int
     name: str
     conclusion: str
-    confidence: float = 1.0       # 该步骤自身置信度
-    data_quality: float = 1.0     # 数据质量
+    confidence: float = 1.0  # 该步骤自身置信度
+    data_quality: float = 1.0  # 数据质量
     details: dict = field(default_factory=dict)
 
 
@@ -83,8 +98,8 @@ class FinalReport:
     pricing: Optional[PricingResult] = None
 
     # 新增模块
-    clv: Optional[CLVResult] = None                 # #5
-    asian: Optional[AsianResult] = None              # #6
+    clv: Optional[CLVResult] = None  # #5
+    asian: Optional[AsianResult] = None  # #6
     calibrated_probs: Optional[CalibratedProbabilities] = None  # #9
 
     # 仓位
@@ -103,7 +118,7 @@ class FinalReport:
 
     # 报告
     step_reports: list[StepReport] = field(default_factory=list)
-    cross_validation: list[str] = field(default_factory=list)   # #16
+    cross_validation: list[str] = field(default_factory=list)  # #16
     summary: str = ""
     warnings: list[str] = field(default_factory=list)
 
@@ -112,21 +127,27 @@ class FinalReport:
 # 总编排
 # ============================================================
 
+
 def run_full_pipeline(
     home_team: str,
     away_team: str,
     league: str = "",
     # Step 1
-    tsi_home: float = 50, tsi_away: float = 50,
+    tsi_home: float = 50,
+    tsi_away: float = 50,
     asian_handicap: Optional[float] = None,
     initial_odds: Optional[tuple[float, float, float]] = None,
     odds_movement: Optional[str] = None,
     is_derby: bool = False,
-    home_form_score: float = 0.5, away_form_score: float = 0.5,
-    key_absence_home: int = 0, key_absence_away: int = 0,
+    home_form_score: float = 0.5,
+    away_form_score: float = 0.5,
+    key_absence_home: int = 0,
+    key_absence_away: int = 0,
     match_date: Optional[datetime] = None,
-    league_round: int = 20, total_rounds: int = 38,
-    home_position: int = 10, away_position: int = 10,
+    league_round: int = 20,
+    total_rounds: int = 38,
+    home_position: int = 10,
+    away_position: int = 10,
     # Step 2
     bookmaker_snapshots: Optional[list[BookmakerSnapshot]] = None,
     previous_bookmakers: Optional[list[BookmakerSnapshot]] = None,
@@ -156,40 +177,51 @@ def run_full_pipeline(
     """
     cfg = config or engine_config.synthesis
     report = FinalReport(
-        home_team=home_team, away_team=away_team,
-        league=league, match_date=match_date,
+        home_team=home_team,
+        away_team=away_team,
+        league=league,
+        match_date=match_date,
     )
     steps: list[StepReport] = []
-    xv: list[str] = []  # cross-validation notes
 
     # ================================================================
     # Step 1: 比赛分类
     # ================================================================
     input_val = validate_classification_input(tsi_home, tsi_away, asian_handicap, initial_odds)
     classification = classify_match(
-        tsi_home=tsi_home, tsi_away=tsi_away,
-        asian_handicap=asian_handicap, initial_odds=initial_odds,
-        odds_movement=odds_movement, is_derby=is_derby,
-        home_form_score=home_form_score, away_form_score=away_form_score,
-        key_absence_home=key_absence_home, key_absence_away=key_absence_away,
-        match_date=match_date, league_round=league_round,
-        total_rounds=total_rounds, home_position=home_position,
+        tsi_home=tsi_home,
+        tsi_away=tsi_away,
+        asian_handicap=asian_handicap,
+        initial_odds=initial_odds,
+        odds_movement=odds_movement,
+        is_derby=is_derby,
+        home_form_score=home_form_score,
+        away_form_score=away_form_score,
+        key_absence_home=key_absence_home,
+        key_absence_away=key_absence_away,
+        match_date=match_date,
+        league_round=league_round,
+        total_rounds=total_rounds,
+        home_position=home_position,
         away_position=away_position,
     )
     report.classification = classification
-    steps.append(StepReport(
-        step=1, name="比赛分类",
-        conclusion=f"类型: {classification.match_type.value} | "
-                   f"强势方: {classification.favorite_side} | "
-                   f"阶段: {classification.match_phase.value}",
-        confidence=classification.confidence,
-        data_quality=input_val.data_quality_score,
-        details={
-            "match_type": classification.match_type.value,
-            "favorite": classification.favorite_side,
-            "phase": classification.match_phase.value,
-        },
-    ))
+    steps.append(
+        StepReport(
+            step=1,
+            name="比赛分类",
+            conclusion=f"类型: {classification.match_type.value} | "
+            f"强势方: {classification.favorite_side} | "
+            f"阶段: {classification.match_phase.value}",
+            confidence=classification.confidence,
+            data_quality=input_val.data_quality_score,
+            details={
+                "match_type": classification.match_type.value,
+                "favorite": classification.favorite_side,
+                "phase": classification.match_phase.value,
+            },
+        )
+    )
     if classification.phase_impact:
         steps[-1].conclusion += f" | {classification.phase_impact}"
 
@@ -212,28 +244,41 @@ def run_full_pipeline(
         )
         consensus = analyze_consensus(bookmaker_snapshots, previous_bookmakers)
         report.consensus = consensus
-        steps.append(StepReport(
-            step=2, name="机构共识",
-            conclusion=f"共识: {consensus.consensus_level.value} | "
-                       f"方向: {consensus.market_direction.value} | "
-                       f"强度: {consensus.direction_strength:.1%}",
-            confidence=1.0 - {"strong": 0, "moderate": 0.15, "weak": 0.35, "divergent": 0.6}.get(
-                consensus.consensus_level.value, 0.5),
-            data_quality=consensus.data_quality,
-            details={"consensus": consensus.consensus_level.value,
-                     "direction": consensus.market_direction.value,
-                     "cv_avg": round(
-                         (consensus.home_std/(consensus.avg_home_odds or 1) +
-                          consensus.draw_std/(consensus.avg_draw_odds or 1) +
-                          consensus.away_std/(consensus.avg_away_odds or 1)) / 3, 4)},
-        ))
+        steps.append(
+            StepReport(
+                step=2,
+                name="机构共识",
+                conclusion=f"共识: {consensus.consensus_level.value} | "
+                f"方向: {consensus.market_direction.value} | "
+                f"强度: {consensus.direction_strength:.1%}",
+                confidence=1.0
+                - {"strong": 0, "moderate": 0.15, "weak": 0.35, "divergent": 0.6}.get(
+                    consensus.consensus_level.value, 0.5
+                ),
+                data_quality=min(consensus.data_quality, val2.data_quality_score),
+                details={
+                    "consensus": consensus.consensus_level.value,
+                    "direction": consensus.market_direction.value,
+                    "cv_avg": round(
+                        (
+                            consensus.home_std / (consensus.avg_home_odds or 1)
+                            + consensus.draw_std / (consensus.avg_draw_odds or 1)
+                            + consensus.away_std / (consensus.avg_away_odds or 1)
+                        )
+                        / 3,
+                        4,
+                    ),
+                },
+            )
+        )
         if consensus.shift_report and consensus.shift_report.notes:
             for n in consensus.shift_report.notes:
                 if "⚠️" in n:
                     report.warnings.append(n)
     else:
-        steps.append(StepReport(step=2, name="机构共识",
-                                conclusion="数据不足", confidence=0, data_quality=0))
+        steps.append(
+            StepReport(step=2, name="机构共识", conclusion="数据不足", confidence=0, data_quality=0)
+        )
 
     # ================================================================
     # Step 3: 指数验证
@@ -245,27 +290,32 @@ def run_full_pipeline(
             avg_home_odds=consensus.avg_home_odds,
             avg_draw_odds=consensus.avg_draw_odds,
             avg_away_odds=consensus.avg_away_odds,
-            home_std=consensus.home_std, draw_std=consensus.draw_std,
+            home_std=consensus.home_std,
+            draw_std=consensus.draw_std,
             away_std=consensus.away_std,
             home_volume_pct=home_volume_pct,
             draw_volume_pct=draw_volume_pct,
             away_volume_pct=away_volume_pct,
         )
         report.validation = validation
-        steps.append(StepReport(
-            step=3, name="指数验证",
-            conclusion=f"结论: {validation.verdict.value} | "
-                       f"支持度: {validation.support_score:+.2f}",
-            details={"verdict": validation.verdict.value,
-                     "support_score": validation.support_score},
-        ))
+        steps.append(
+            StepReport(
+                step=3,
+                name="指数验证",
+                conclusion=f"结论: {validation.verdict.value} | "
+                f"支持度: {validation.support_score:+.2f}",
+                details={
+                    "verdict": validation.verdict.value,
+                    "support_score": validation.support_score,
+                },
+            )
+        )
         if validation.notes:
             for n in validation.notes:
                 if "⚠️" in n:
                     report.warnings.append(n)
     else:
-        steps.append(StepReport(step=3, name="指数验证",
-                                conclusion="无方向数据", confidence=0))
+        steps.append(StepReport(step=3, name="指数验证", conclusion="无方向数据", confidence=0))
 
     # ================================================================
     # Step 4: 市场定价
@@ -276,24 +326,35 @@ def run_full_pipeline(
     if has_model and has_market:
         # 联赛校准 (#9)
         calibrated = calibrate_by_league(
-            model_home_prob, model_draw_prob, model_away_prob, league,
+            model_home_prob,
+            model_draw_prob,
+            model_away_prob,
+            league,
         )
         report.calibrated_probs = calibrated
 
         pricing = check_market_pricing(
-            calibrated.home_prob, calibrated.draw_prob, calibrated.away_prob,
-            best_home_odds, best_draw_odds, best_away_odds,
+            calibrated.home_prob,
+            calibrated.draw_prob,
+            calibrated.away_prob,
+            best_home_odds,
+            best_draw_odds,
+            best_away_odds,
         )
         report.pricing = pricing
-        steps.append(StepReport(
-            step=4, name="市场定价",
-            conclusion=f"结论: {pricing.verdict.value} | "
-                       f"{'价值: ' + pricing.best_value_side + ' EV=' + f'{pricing.best_ev:.2%}' if pricing.best_value_side else '无价值'}",
-            details={"verdict": pricing.verdict.value, "best_ev": pricing.best_ev},
-        ))
+        steps.append(
+            StepReport(
+                step=4,
+                name="市场定价",
+                conclusion=f"结论: {pricing.verdict.value} | "
+                f"{'价值: ' + pricing.best_value_side + ' EV=' + f'{pricing.best_ev:.2%}' if pricing.best_value_side else '无价值'}",
+                details={"verdict": pricing.verdict.value, "best_ev": pricing.best_ev},
+            )
+        )
     else:
-        steps.append(StepReport(step=4, name="市场定价",
-                                conclusion="缺少模型概率或市场赔率", confidence=0))
+        steps.append(
+            StepReport(step=4, name="市场定价", conclusion="缺少模型概率或市场赔率", confidence=0)
+        )
 
     # ================================================================
     # 增强模块: CLV (#5)
@@ -302,10 +363,13 @@ def run_full_pipeline(
         clv = analyze_clv(opening_odds, closing_odds, odds_timeseries)
         report.clv = clv
         if clv.clv_direction:
-            steps.append(StepReport(
-                step="4a", name="CLV追踪",
-                conclusion=f"方向: {clv.clv_direction} | 强度: {clv.clv_strength:.1%} | 模式: {clv.pattern}",
-            ))
+            steps.append(
+                StepReport(
+                    step="4a",
+                    name="CLV追踪",
+                    conclusion=f"方向: {clv.clv_direction} | 强度: {clv.clv_strength:.1%} | 模式: {clv.pattern}",
+                )
+            )
 
     # ================================================================
     # 增强模块: 亚盘 (#6)
@@ -314,21 +378,24 @@ def run_full_pipeline(
         asian = analyze_asian_handicap(current_asian_lines, opening_asian_lines)
         report.asian = asian
         if asian.direction_signal:
-            steps.append(StepReport(
-                step="4b", name="亚盘分析",
-                conclusion=f"方向: {asian.direction_signal} | "
-                           f"盘口: {asian.main_handicap} | "
-                           f"走势: {asian.trend.value}",
-            ))
+            steps.append(
+                StepReport(
+                    step="4b",
+                    name="亚盘分析",
+                    conclusion=f"方向: {asian.direction_signal} | "
+                    f"盘口: {asian.main_handicap} | "
+                    f"走势: {asian.trend.value}",
+                )
+            )
 
     # ================================================================
     # Step 5: 综合判断 (融合所有信号)
     # ================================================================
     report.step_reports = steps
     # 注入市场赔率到 report (供融合逻辑使用)
-    report.__dict__['_market_home_odds'] = best_home_odds
-    report.__dict__['_market_draw_odds'] = best_draw_odds
-    report.__dict__['_market_away_odds'] = best_away_odds
+    report.__dict__["_market_home_odds"] = best_home_odds
+    report.__dict__["_market_draw_odds"] = best_draw_odds
+    report.__dict__["_market_away_odds"] = best_away_odds
     _final_synthesis_v2(report, cfg)
 
     # ================================================================
@@ -338,7 +405,11 @@ def run_full_pipeline(
     rec_dir = report.recommended_direction
     if rec_dir and rec_dir in direction_odds_map and direction_odds_map[rec_dir]:
         best_odds = direction_odds_map[rec_dir]
-        prob_map = {"home": report.final_home_prob, "draw": report.final_draw_prob, "away": report.final_away_prob}
+        prob_map = {
+            "home": report.final_home_prob,
+            "draw": report.final_draw_prob,
+            "away": report.final_away_prob,
+        }
         raw_size = calculate_kelly(prob_map[rec_dir], best_odds)
         adjusted = scene_adjusted_kelly(
             raw_size.recommended_fraction,
@@ -349,10 +420,13 @@ def run_full_pipeline(
         raw_size.recommended_fraction = adjusted
         report.position_sizing = raw_size
         report.raw_kelly_fraction = raw_size.kelly_fraction
-        steps.append(StepReport(
-            step="5a", name="仓位管理",
-            conclusion=f"建议仓位: {adjusted:.2%} | {raw_size.sizing_label}",
-        ))
+        steps.append(
+            StepReport(
+                step="5a",
+                name="仓位管理",
+                conclusion=f"建议仓位: {adjusted:.2%} | {raw_size.sizing_label}",
+            )
+        )
 
     return report
 
@@ -360,6 +434,7 @@ def run_full_pipeline(
 # ============================================================
 # 信号融合 (支持 CLV + 亚盘)
 # ============================================================
+
 
 def _final_synthesis_v2(report: FinalReport, cfg: SynthesisConfig):
     """增强版信号融合"""
@@ -389,8 +464,13 @@ def _final_synthesis_v2(report: FinalReport, cfg: SynthesisConfig):
     # ---- Step 2 共识 ----
     if con and con.market_direction.value != "unclear":
         quality_factor = con.data_quality
-        signals.append((con.market_direction.value, con.direction_strength * quality_factor,
-                        cfg.weight_consensus))
+        signals.append(
+            (
+                con.market_direction.value,
+                con.direction_strength * quality_factor,
+                cfg.weight_consensus,
+            )
+        )
 
     # ---- Step 3 验证 ----
     if val:
@@ -478,7 +558,11 @@ def _final_synthesis_v2(report: FinalReport, cfg: SynthesisConfig):
     report.final_away_prob /= total
 
     # 推荐方向
-    probs = {"home": report.final_home_prob, "draw": report.final_draw_prob, "away": report.final_away_prob}
+    probs = {
+        "home": report.final_home_prob,
+        "draw": report.final_draw_prob,
+        "away": report.final_away_prob,
+    }
     best_dir = max(probs, key=probs.get)
     best_p = probs[best_dir]
     second = sorted(probs.values(), reverse=True)[1]
@@ -487,14 +571,14 @@ def _final_synthesis_v2(report: FinalReport, cfg: SynthesisConfig):
     # ═══════════════════════════════════════════════════════
     # 反向赔率检查：主胜赔率太短 → 降级或找冷门价值
     # ═══════════════════════════════════════════════════════
-    home_odds = report._market_home_odds if hasattr(report, '_market_home_odds') else None
-    draw_odds = report._market_draw_odds if hasattr(report, '_market_draw_odds') else None
-    away_odds = report._market_away_odds if hasattr(report, '_market_away_odds') else None
+    home_odds = report._market_home_odds if hasattr(report, "_market_home_odds") else None
+    draw_odds = report._market_draw_odds if hasattr(report, "_market_draw_odds") else None
+    away_odds = report._market_away_odds if hasattr(report, "_market_away_odds") else None
 
     if best_dir == "home" and home_odds and home_odds < 1.65:
         # 主胜赔率太短：需要更强的确认信号
-        validator_confirmed = (val and val.verdict == ValidationVerdict.CONFIRMED)
-        pricing_undervalues_home = (pri and pri.best_value_side == "home" and pri.best_ev > 0.03)
+        validator_confirmed = val and val.verdict == ValidationVerdict.CONFIRMED
+        pricing_undervalues_home = pri and pri.best_value_side == "home" and pri.best_ev > 0.03
 
         if not (validator_confirmed and pricing_undervalues_home):
             # 寻找被低估的冷门方向
@@ -547,10 +631,10 @@ def _final_synthesis_v2(report: FinalReport, cfg: SynthesisConfig):
 def generate_markdown_report(report: FinalReport) -> str:
     """生成 Markdown 可读报告"""
     lines = [
-        f"# ⚽ 综合预测报告",
-        f"",
+        "# ⚽ 综合预测报告",
+        "",
         f"**{report.home_team} vs {report.away_team}**  {f'({report.league})' if report.league else ''}",
-        f"",
+        "",
         "---",
         "",
         "## 五步分析流程",
@@ -568,36 +652,42 @@ def generate_markdown_report(report: FinalReport) -> str:
             lines.append(f"- {cv}")
         lines.append("")
 
-    lines.extend([
-        "---",
-        "",
-        "## 🎯 最终判定",
-        f"**裁决**: `{report.final_verdict.value}`",
-    ])
+    lines.extend(
+        [
+            "---",
+            "",
+            "## 🎯 最终判定",
+            f"**裁决**: `{report.final_verdict.value}`",
+        ]
+    )
     if report.recommended_direction:
         d = {"home": report.home_team, "draw": "平局", "away": report.away_team}
         lines.append(f"**推荐方向**: {d[report.recommended_direction]}")
     lines.append(f"**置信度**: {report.confidence_score:.1%}")
     lines.append("")
 
-    lines.extend([
-        "| 结果 | 概率 |",
-        "|------|------|",
-        f"| {report.home_team} 胜 | {report.final_home_prob:.1%} |",
-        f"| 平局 | {report.final_draw_prob:.1%} |",
-        f"| {report.away_team} 胜 | {report.final_away_prob:.1%} |",
-        "",
-    ])
+    lines.extend(
+        [
+            "| 结果 | 概率 |",
+            "|------|------|",
+            f"| {report.home_team} 胜 | {report.final_home_prob:.1%} |",
+            f"| 平局 | {report.final_draw_prob:.1%} |",
+            f"| {report.away_team} 胜 | {report.final_away_prob:.1%} |",
+            "",
+        ]
+    )
 
     if report.position_sizing and report.position_sizing.sizing_label != "skip":
         ps = report.position_sizing
-        lines.extend([
-            "### 💰 仓位建议",
-            f"- Kelly 原始: {ps.kelly_fraction:.2%}",
-            f"- 建议仓位: **{ps.recommended_fraction:.2%}** ({ps.sizing_label})",
-            f"- {ps.notes[0] if ps.notes else ''}",
-            "",
-        ])
+        lines.extend(
+            [
+                "### 💰 仓位建议",
+                f"- Kelly 原始: {ps.kelly_fraction:.2%}",
+                f"- 建议仓位: **{ps.recommended_fraction:.2%}** ({ps.sizing_label})",
+                f"- {ps.notes[0] if ps.notes else ''}",
+                "",
+            ]
+        )
 
     if report.warnings:
         lines.append("### ⚠️ 风险提示")
@@ -612,6 +702,7 @@ def generate_markdown_report(report: FinalReport) -> str:
 # ============================================================
 # 向后兼容
 # ============================================================
+
 
 def generate_markdown_report_legacy(report: FinalReport) -> str:
     return generate_markdown_report(report)

@@ -5,6 +5,7 @@
   #4  赔率稳定性归一化修复 — 使用 CV (变异系数) 而非裸 std
   #16 交叉验证 — 验证结果附置信度
 """
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
@@ -43,7 +44,7 @@ class ValidationResult:
     verdict: ValidationVerdict
     kelly: Optional[KellyResult] = None
     volume: Optional[VolumeResult] = None
-    odds_stability: Optional[float] = None      # 归一化稳定性 (CV法)
+    odds_stability: Optional[float] = None  # 归一化稳定性 (CV法)
     draw_signal: Optional[bool] = None
     support_score: float = 0.0
     notes: list[str] = field(default_factory=list)
@@ -123,23 +124,30 @@ def validate_with_indexes(
         verdict = ValidationVerdict.INSUFFICIENT
 
     return ValidationResult(
-        verdict=verdict, kelly=kelly, volume=volume,
-        odds_stability=stability, draw_signal=draws_are_low,
-        support_score=support, notes=notes,
+        verdict=verdict,
+        kelly=kelly,
+        volume=volume,
+        odds_stability=stability,
+        draw_signal=draws_are_low,
+        support_score=support,
+        notes=notes,
     )
 
 
 def _compute_kelly(
-    avg_home_odds: float, avg_draw_odds: float, avg_away_odds: float,
-    direction: str, cfg: ValidatorConfig,
+    avg_home_odds: float,
+    avg_draw_odds: float,
+    avg_away_odds: float,
+    direction: str,
+    cfg: ValidatorConfig,
 ) -> Optional[KellyResult]:
     if not all([avg_home_odds > 0, avg_draw_odds > 0, avg_away_odds > 0]):
         return None
 
-    raw_h, raw_d, raw_a = 1/avg_home_odds, 1/avg_draw_odds, 1/avg_away_odds
+    raw_h, raw_d, raw_a = 1 / avg_home_odds, 1 / avg_draw_odds, 1 / avg_away_odds
     total = raw_h + raw_d + raw_a
 
-    fair_h, fair_d, fair_a = raw_h/total, raw_d/total, raw_a/total
+    fair_h, fair_d, fair_a = raw_h / total, raw_d / total, raw_a / total
 
     k_h = max((avg_home_odds * fair_h - 1) / (avg_home_odds - 1), -1)
     k_d = max((avg_draw_odds * fair_d - 1) / (avg_draw_odds - 1), -1)
@@ -149,13 +157,18 @@ def _compute_kelly(
     best = max(kelly_map, key=kelly_map.get)
 
     return KellyResult(
-        home_kelly=round(k_h, 4), draw_kelly=round(k_d, 4), away_kelly=round(k_a, 4),
+        home_kelly=round(k_h, 4),
+        draw_kelly=round(k_d, 4),
+        away_kelly=round(k_a, 4),
         verdict=f"{best}_value",
     )
 
 
 def _analyze_volume(
-    home_pct: float, draw_pct: float, away_pct: float, cfg: ValidatorConfig,
+    home_pct: float,
+    draw_pct: float,
+    away_pct: float,
+    cfg: ValidatorConfig,
 ) -> VolumeResult:
     vol_map = {"home": home_pct, "draw": draw_pct, "away": away_pct}
     hot = max(vol_map, key=vol_map.get)
@@ -163,8 +176,11 @@ def _analyze_volume(
     is_over = hot_val > cfg.overheat_threshold
 
     result = VolumeResult(
-        home_volume_pct=home_pct, draw_volume_pct=draw_pct, away_volume_pct=away_pct,
-        hot_side=hot, is_overheated=is_over,
+        home_volume_pct=home_pct,
+        draw_volume_pct=draw_pct,
+        away_volume_pct=away_pct,
+        hot_side=hot,
+        is_overheated=is_over,
         verdict="overheated" if is_over else "balanced",
     )
     # monkey-patch helper
@@ -173,7 +189,10 @@ def _analyze_volume(
 
 
 def _detect_draw_signal(
-    draw_odds: float, home_odds: float, away_odds: float, cfg: ValidatorConfig,
+    draw_odds: float,
+    home_odds: float,
+    away_odds: float,
+    cfg: ValidatorConfig,
 ) -> bool:
     if not all([draw_odds > 0, home_odds > 0, away_odds > 0]):
         return False

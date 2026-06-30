@@ -1,9 +1,9 @@
 """
 SQLAlchemy ORM 模型：预测记录
 """
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, func
 
 from core.database import Base
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, func
 
 
 class Prediction(Base):

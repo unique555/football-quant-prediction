@@ -1,7 +1,6 @@
 """
 Pydantic Schema: 联赛 & 球队
 """
-from typing import List, Optional
 
 from pydantic import BaseModel
 

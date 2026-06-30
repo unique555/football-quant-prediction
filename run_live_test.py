@@ -4,21 +4,19 @@
 在你本地机器运行: python3 run_live_test.py
 需要 pip install requests lightgbm scikit-learn pandas joblib
 """
-import sys, os, json, time, pickle
-from collections import defaultdict
+
+import json
+import os
+import sys
+import time
 from typing import Optional
 
 import pandas as pd
-import numpy as np
 import requests
-import joblib
-import lightgbm as lgb
-from sklearn.preprocessing import StandardScaler
 
 # ============================================================
 # 配置 (直接粘贴你的 keys)
 # ============================================================
-import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import ODDSPAPI_KEY
 
@@ -27,6 +25,7 @@ API_FOOTBALL_KEY = os.getenv("API_FOOTBALL_KEY", "")
 # ============================================================
 # 1. OddsPapi — 拉真赔率
 # ============================================================
+
 
 def fetch_odds_pinnacle(tournament_id: int = 17) -> list[dict]:
     """拉取英超 Pinnacle 赔率"""
@@ -62,9 +61,10 @@ def parse_odds(item: dict) -> Optional[dict]:
 # 2. API-Football — 拉赛程 & 比分
 # ============================================================
 
+
 def fetch_fixtures(league_id: int = 39, season: int = 2024) -> list[dict]:
     """拉英超赛程 + 比分"""
-    url = f"https://v3.football.api-sports.io/fixtures"
+    url = "https://v3.football.api-sports.io/fixtures"
     params = {"league": league_id, "season": season, "status": "FT"}
     headers = {"x-apisports-key": API_FOOTBALL_KEY}
     time.sleep(6)  # 免费版限速
@@ -92,6 +92,7 @@ def parse_fixture(item: dict) -> dict:
 # ============================================================
 # 3. 基于历史赛果构建实力评分 → 生成合成赔率
 # ============================================================
+
 
 def build_team_strength(fixtures: list[dict]) -> dict:
     """基于2024赛季赛果，计算每队的进攻/防守实力评分"""
@@ -138,8 +139,9 @@ def generate_synthetic_odds(home_team: str, away_team: str, ratings: dict) -> tu
 
     # Poisson概率模拟
     from math import exp, factorial
+
     def poisson_pmf(lmbda, k):
-        return exp(-lmbda) * (lmbda ** k) / factorial(k) if k >= 0 else 0
+        return exp(-lmbda) * (lmbda**k) / factorial(k) if k >= 0 else 0
 
     max_goals = 8
     p_home = p_draw = p_away = 0.0
@@ -170,68 +172,98 @@ def generate_synthetic_odds(home_team: str, away_team: str, ratings: dict) -> tu
 # 4. 分析引擎
 # ============================================================
 
+
 def run_analysis(df: pd.DataFrame, label: str = "") -> dict:
     """对赔率+赛果数据跑分析"""
     if len(df) == 0:
         return {"error": "No matched data"}
 
     # 隐含概率
-    df["raw_sum"] = 1/df["home_odds"] + 1/df["draw_odds"] + 1/df["away_odds"]
-    df["mkt_home_p"] = (1/df["home_odds"]) / df["raw_sum"]
-    df["mkt_draw_p"] = (1/df["draw_odds"]) / df["raw_sum"]
-    df["mkt_away_p"] = (1/df["away_odds"]) / df["raw_sum"]
+    df["raw_sum"] = 1 / df["home_odds"] + 1 / df["draw_odds"] + 1 / df["away_odds"]
+    df["mkt_home_p"] = (1 / df["home_odds"]) / df["raw_sum"]
+    df["mkt_draw_p"] = (1 / df["draw_odds"]) / df["raw_sum"]
+    df["mkt_away_p"] = (1 / df["away_odds"]) / df["raw_sum"]
 
     # 实际结果
     df["outcome"] = df.apply(
-        lambda r: "home" if r["home_goals"] > r["away_goals"]
-        else ("draw" if r["home_goals"] == r["away_goals"] else "away"),
+        lambda r: (
+            "home"
+            if r["home_goals"] > r["away_goals"]
+            else ("draw" if r["home_goals"] == r["away_goals"] else "away")
+        ),
         axis=1,
     )
 
     # 市场预测方向
     df["market_pick"] = df[["mkt_home_p", "mkt_draw_p", "mkt_away_p"]].idxmax(axis=1)
-    df["market_pick"] = df["market_pick"].map({
-        "mkt_home_p": "home", "mkt_draw_p": "draw", "mkt_away_p": "away",
-    })
+    df["market_pick"] = df["market_pick"].map(
+        {
+            "mkt_home_p": "home",
+            "mkt_draw_p": "draw",
+            "mkt_away_p": "away",
+        }
+    )
 
     # 准确率
     acc = (df["market_pick"] == df["outcome"]).mean()
 
     # 按赔率分层的准确率
-    df["odds_bucket"] = pd.cut(df["home_odds"], bins=[0, 1.5, 2.0, 3.0, 100], labels=["<1.5", "1.5-2", "2-3", ">3"])
+    df["odds_bucket"] = pd.cut(
+        df["home_odds"], bins=[0, 1.5, 2.0, 3.0, 100], labels=["<1.5", "1.5-2", "2-3", ">3"]
+    )
     bucket_rows = []
     for bucket, group in df.groupby("odds_bucket", observed=False):
-        bucket_rows.append({
-            "bucket": bucket,
-            "count": len(group),
-            "accuracy": (group["market_pick"] == group["outcome"]).mean(),
-        })
+        bucket_rows.append(
+            {
+                "bucket": bucket,
+                "count": len(group),
+                "accuracy": (group["market_pick"] == group["outcome"]).mean(),
+            }
+        )
 
     # Brier Score
     bs = 0
     for _, r in df.iterrows():
-        av = {"home": (1,0,0), "draw": (0,1,0), "away": (0,0,1)}
+        av = {"home": (1, 0, 0), "draw": (0, 1, 0), "away": (0, 0, 1)}
         a = av[r["outcome"]]
-        bs += ((r["mkt_home_p"]-a[0])**2 + (r["mkt_draw_p"]-a[1])**2 + (r["mkt_away_p"]-a[2])**2) / 3
+        bs += (
+            (r["mkt_home_p"] - a[0]) ** 2
+            + (r["mkt_draw_p"] - a[1]) ** 2
+            + (r["mkt_away_p"] - a[2]) ** 2
+        ) / 3
     brier = bs / len(df)
 
     # 按概率置信度分层
-    df["confidence"] = pd.cut(df["mkt_home_p"], bins=[0, 0.4, 0.5, 0.6, 0.7, 1.0],
-                              labels=["<40%", "40-50%", "50-60%", "60-70%", ">70%"])
+    df["confidence"] = pd.cut(
+        df["mkt_home_p"],
+        bins=[0, 0.4, 0.5, 0.6, 0.7, 1.0],
+        labels=["<40%", "40-50%", "50-60%", "60-70%", ">70%"],
+    )
     conf_rows = []
     for conf, group in df.groupby("confidence", observed=False):
-        conf_rows.append({
-            "confidence": conf,
-            "count": len(group),
-            "accuracy": (group["market_pick"] == group["outcome"]).mean(),
-        })
+        conf_rows.append(
+            {
+                "confidence": conf,
+                "count": len(group),
+                "accuracy": (group["market_pick"] == group["outcome"]).mean(),
+            }
+        )
 
     # ROI 模拟: 每场投注1单位于市场预测方向
     df["bet_return"] = df.apply(
-        lambda r: r["home_odds"] - 1 if r["market_pick"] == "home" and r["outcome"] == "home"
-        else (r["draw_odds"] - 1 if r["market_pick"] == "draw" and r["outcome"] == "draw"
-              else (r["away_odds"] - 1 if r["market_pick"] == "away" and r["outcome"] == "away"
-                    else -1)),
+        lambda r: (
+            r["home_odds"] - 1
+            if r["market_pick"] == "home" and r["outcome"] == "home"
+            else (
+                r["draw_odds"] - 1
+                if r["market_pick"] == "draw" and r["outcome"] == "draw"
+                else (
+                    r["away_odds"] - 1
+                    if r["market_pick"] == "away" and r["outcome"] == "away"
+                    else -1
+                )
+            )
+        ),
         axis=1,
     )
     total_roi = df["bet_return"].sum() / len(df)
@@ -244,7 +276,7 @@ def run_analysis(df: pd.DataFrame, label: str = "") -> dict:
         "by_odds_bucket": bucket_rows,
         "by_confidence": conf_rows,
         "outcome_dist": df["outcome"].value_counts(normalize=True).to_dict(),
-        "avg_payout": (1/df["raw_sum"]).mean(),
+        "avg_payout": (1 / df["raw_sum"]).mean(),
         "roi": total_roi,
     }
 
@@ -252,10 +284,10 @@ def run_analysis(df: pd.DataFrame, label: str = "") -> dict:
 def analyze_current_odds(odds_list: list[dict]) -> dict:
     """对当前 OddsPapi 赔率做独立分析"""
     df = pd.DataFrame(odds_list)
-    df["raw_sum"] = 1/df["home_odds"] + 1/df["draw_odds"] + 1/df["away_odds"]
-    df["mkt_home_p"] = (1/df["home_odds"]) / df["raw_sum"]
-    df["mkt_draw_p"] = (1/df["draw_odds"]) / df["raw_sum"]
-    df["mkt_away_p"] = (1/df["away_odds"]) / df["raw_sum"]
+    df["raw_sum"] = 1 / df["home_odds"] + 1 / df["draw_odds"] + 1 / df["away_odds"]
+    df["mkt_home_p"] = (1 / df["home_odds"]) / df["raw_sum"]
+    df["mkt_draw_p"] = (1 / df["draw_odds"]) / df["raw_sum"]
+    df["mkt_away_p"] = (1 / df["away_odds"]) / df["raw_sum"]
     df["payout"] = 1 / df["raw_sum"]
 
     return {
@@ -272,13 +304,25 @@ def analyze_current_odds(odds_list: list[dict]) -> dict:
             "away_odds_range": [float(df["away_odds"].min()), float(df["away_odds"].max())],
         },
         "implied_home_win_pct": float(df["mkt_home_p"].mean()),
-        "matches": df[["home_odds", "draw_odds", "away_odds", "mkt_home_p", "mkt_draw_p", "mkt_away_p", "payout", "start_time"]].to_dict(orient="records"),
+        "matches": df[
+            [
+                "home_odds",
+                "draw_odds",
+                "away_odds",
+                "mkt_home_p",
+                "mkt_draw_p",
+                "mkt_away_p",
+                "payout",
+                "start_time",
+            ]
+        ].to_dict(orient="records"),
     }
 
 
 # ============================================================
 # 5. 主流程
 # ============================================================
+
 
 def main():
     print("=" * 60)
@@ -327,19 +371,19 @@ def main():
     for fx in fixtures_parsed:
         if fx["home_goals"] is None or fx["away_goals"] is None:
             continue
-        h_odds, d_odds, a_odds = generate_synthetic_odds(
-            fx["home_team"], fx["away_team"], ratings
+        h_odds, d_odds, a_odds = generate_synthetic_odds(fx["home_team"], fx["away_team"], ratings)
+        backtest_rows.append(
+            {
+                "date": fx["date"],
+                "home_team": fx["home_team"],
+                "away_team": fx["away_team"],
+                "home_goals": fx["home_goals"],
+                "away_goals": fx["away_goals"],
+                "home_odds": h_odds,
+                "draw_odds": d_odds,
+                "away_odds": a_odds,
+            }
         )
-        backtest_rows.append({
-            "date": fx["date"],
-            "home_team": fx["home_team"],
-            "away_team": fx["away_team"],
-            "home_goals": fx["home_goals"],
-            "away_goals": fx["away_goals"],
-            "home_odds": h_odds,
-            "draw_odds": d_odds,
-            "away_odds": a_odds,
-        })
     df_backtest = pd.DataFrame(backtest_rows)
     print(f"   ✅ 生成 {len(df_backtest)} 场回测数据")
     print()
@@ -360,9 +404,11 @@ def main():
         print(f"  Brier Score:    {results['brier_score']:.4f}")
         print(f"  模型ROI:        {results['roi']:+.1%}")
         print(f"  平均返还率:     {results['avg_payout']:.1%}")
-        print(f"  赛果分布:       主胜 {results['outcome_dist'].get('home', 0):.1%}  "
-              f"平局 {results['outcome_dist'].get('draw', 0):.1%}  "
-              f"客胜 {results['outcome_dist'].get('away', 0):.1%}")
+        print(
+            f"  赛果分布:       主胜 {results['outcome_dist'].get('home', 0):.1%}  "
+            f"平局 {results['outcome_dist'].get('draw', 0):.1%}  "
+            f"客胜 {results['outcome_dist'].get('away', 0):.1%}"
+        )
         print()
         print("  📊 按赔率分层:")
         for b in results["by_odds_bucket"]:
@@ -377,18 +423,22 @@ def main():
         all_results = {
             "current_odds_analysis": current_analysis if odds_parsed else {},
             "backtest_2024": results,
-            "team_ratings": {k: {"off": round(v["off"], 2), "def": round(v["def"], 2), "gp": v["gp"]}
-                             for k, v in sorted(ratings.items(), key=lambda x: -x[1]["off"])},
+            "team_ratings": {
+                k: {"off": round(v["off"], 2), "def": round(v["def"], 2), "gp": v["gp"]}
+                for k, v in sorted(ratings.items(), key=lambda x: -x[1]["off"])
+            },
         }
 
         # 保存 CSV
-        df_backtest.to_csv("/workspace/football-quant-prediction/real_odds_backtest.csv", index=False)
-        print(f"  ✅ 回测数据已保存到 real_odds_backtest.csv")
+        df_backtest.to_csv(
+            "/workspace/football-quant-prediction/real_odds_backtest.csv", index=False
+        )
+        print("  ✅ 回测数据已保存到 real_odds_backtest.csv")
 
         # 保存 JSON
         with open("/workspace/football-quant-prediction/real_odds_results.json", "w") as f:
             json.dump(all_results, f, indent=2, default=str, ensure_ascii=False)
-        print(f"  ✅ 完整结果已保存到 real_odds_results.json")
+        print("  ✅ 完整结果已保存到 real_odds_results.json")
 
     else:
         print("⚠️ 未能生成回测数据")

@@ -1,6 +1,7 @@
 """
 Pydantic Schema: 比赛
 """
+
 from datetime import datetime
 from typing import Optional
 

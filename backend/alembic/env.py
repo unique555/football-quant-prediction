@@ -1,21 +1,21 @@
 """
 Alembic 环境配置
 """
+
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
-
-from core.database import Base
 from core.config import settings
+from core.database import Base
 
 # 导入所有模型，确保 Base.metadata 包含全部表
-from models.league import League       # noqa
-from models.team import Team           # noqa
-from models.match import Match         # noqa
-from models.odds import Odds           # noqa
+from models.league import League  # noqa
+from models.match import Match  # noqa
+from models.odds import Odds  # noqa
 from models.prediction import Prediction  # noqa
-from models.user import User           # noqa
+from models.team import Team  # noqa
+from models.user import User  # noqa
+from sqlalchemy import engine_from_config, pool
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.SYNC_DATABASE_URL)

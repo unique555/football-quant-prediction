@@ -5,14 +5,16 @@ CLV (Closing Line Value) 追踪器
 CLV 是体育预测学最稳定的 alpha 因子:
   初盘赔率 → 临场赔率的变动方向和幅度反映真实市场判断
 """
+
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 
 
 @dataclass
 class OddsSnapshot:
     """单个时间点的赔率快照"""
+
     timestamp: datetime
     home_odds: float
     draw_odds: float
@@ -22,22 +24,23 @@ class OddsSnapshot:
 @dataclass
 class CLVResult:
     """CLV 分析结果"""
+
     # 初盘 → 临场变化
-    home_move_pct: float = 0.0     # 正=降水(受注), 负=升水(被抛)
+    home_move_pct: float = 0.0  # 正=降水(受注), 负=升水(被抛)
     draw_move_pct: float = 0.0
     away_move_pct: float = 0.0
 
     # 综合判断
-    clv_direction: Optional[str] = None    # "home" | "draw" | "away" | None
-    clv_strength: float = 0.0             # 0-1, CLV 信号强度
+    clv_direction: Optional[str] = None  # "home" | "draw" | "away" | None
+    clv_strength: float = 0.0  # 0-1, CLV 信号强度
 
     # 走势特征
-    pattern: str = "unknown"             # "steaming" | "drifting" | "volatile" | "stable"
-    max_drawdown: float = 0.0            # 赔率在过程中被拉升的最大幅度（抛压）
+    pattern: str = "unknown"  # "steaming" | "drifting" | "volatile" | "stable"
+    max_drawdown: float = 0.0  # 赔率在过程中被拉升的最大幅度（抛压）
 
     # 亚洲盘专用
     handicap_move: Optional[float] = None  # 亚盘升降（正=升盘/降水，负=降盘/升水）
-    handicap_move_pips: float = 0.0        # 亚盘变动幅度（多少档）
+    handicap_move_pips: float = 0.0  # 亚盘变动幅度（多少档）
 
     notes: list[str] = field(default_factory=list)
 
@@ -148,8 +151,10 @@ def _detect_pattern(
 
     # 波动率判断模式
     if len(home_series) >= 2:
-        changes = [abs(home_series[i] - home_series[i-1]) / home_series[i-1]
-                   for i in range(1, len(home_series))]
+        changes = [
+            abs(home_series[i] - home_series[i - 1]) / home_series[i - 1]
+            for i in range(1, len(home_series))
+        ]
         avg_change = sum(changes) / len(changes)
 
         if avg_change > 0.02:
@@ -171,7 +176,7 @@ def _estimate_handicap_move(
     away_diff = closing.away_odds - opening.away_odds
 
     if home_diff < -0.10:
-        return "home_up"     # 主队赔率大降 → 亚盘可能升盘
+        return "home_up"  # 主队赔率大降 → 亚盘可能升盘
     elif away_diff < -0.10:
         return "away_up"
     elif home_diff > 0.10:

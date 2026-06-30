@@ -13,10 +13,11 @@ API-Football 数据采集器
   GET /teams/statistics?league=X&team=Y&season=Z → 球队统计
   GET /fixtures/headtohead?h2h=X-Y → 历史交锋
 """
-import os
+
 import logging
-from typing import Optional, Generator
-from dataclasses import dataclass, field
+import os
+from dataclasses import dataclass
+from typing import Optional
 
 from data.http_client import APIClient
 
@@ -48,8 +49,8 @@ class MatchInfo:
     fixture_id: int
     league_id: int
     league_name: str
-    date: str                          # "2026-06-29T20:00:00+00:00"
-    status: str                        # "FT" | "NS" | "1H" | "HT" | "2H"
+    date: str  # "2026-06-29T20:00:00+00:00"
+    status: str  # "FT" | "NS" | "1H" | "HT" | "2H"
     home_team_id: int
     home_team_name: str
     away_team_id: int
@@ -91,18 +92,18 @@ class TeamStats:
 # 联赛映射表 (常用联赛代码 → API-Football ID)
 # ============================================================
 COMMON_LEAGUES = {
-    "epl": 39,            # 英超
-    "laliga": 140,         # 西甲
-    "serie_a": 135,        # 意甲
-    "bundesliga": 78,      # 德甲
-    "ligue1": 61,          # 法甲
-    "eredivisie": 88,      # 荷甲
-    "primeira": 94,        # 葡超
-    "championship": 40,    # 英冠
-    "mls": 253,            # 美职联
-    "jleague": 98,         # J联赛
-    "champions_league": 2, # 欧冠
-    "europa_league": 3,    # 欧联
+    "epl": 39,  # 英超
+    "laliga": 140,  # 西甲
+    "serie_a": 135,  # 意甲
+    "bundesliga": 78,  # 德甲
+    "ligue1": 61,  # 法甲
+    "eredivisie": 88,  # 荷甲
+    "primeira": 94,  # 葡超
+    "championship": 40,  # 英冠
+    "mls": 253,  # 美职联
+    "jleague": 98,  # J联赛
+    "champions_league": 2,  # 欧冠
+    "europa_league": 3,  # 欧联
 }
 
 
@@ -118,9 +119,11 @@ class ApiFootballScraper:
             api_key=key,
             calls_per_minute=30,  # 免费版限制
         )
-        self.client.session.headers.update({
-            "x-apisports-key": key,
-        })
+        self.client.session.headers.update(
+            {
+                "x-apisports-key": key,
+            }
+        )
 
     # ---- 联赛 ----
 
@@ -132,19 +135,21 @@ class ApiFootballScraper:
         data = self.client.get("/leagues", params)
         leagues = []
         for item in data.get("response", []):
-            l = item.get("league", {})
+            league = item.get("league", {})
             c = item.get("country", {})
             seasons = item.get("seasons", [])
             latest = max((s.get("year", 0) for s in seasons), default=2025)
 
-            leagues.append(LeagueInfo(
-                league_id=l.get("id", 0),
-                name=l.get("name", ""),
-                country=c.get("name", ""),
-                type=l.get("type", "League"),
-                current_season=latest,
-                logo_url=l.get("logo", ""),
-            ))
+            leagues.append(
+                LeagueInfo(
+                    league_id=league.get("id", 0),
+                    name=league.get("name", ""),
+                    country=c.get("name", ""),
+                    type=league.get("type", "League"),
+                    current_season=latest,
+                    logo_url=league.get("logo", ""),
+                )
+            )
         return leagues
 
     def get_league_by_code(self, code: str) -> Optional[LeagueInfo]:
@@ -154,17 +159,17 @@ class ApiFootballScraper:
             return None
         data = self.client.get("/leagues", {"id": league_id})
         for item in data.get("response", []):
-            l = item.get("league", {})
+            league = item.get("league", {})
             c = item.get("country", {})
             seasons = item.get("seasons", [])
             latest = max((s.get("year", 0) for s in seasons), default=2025)
             return LeagueInfo(
-                league_id=l.get("id", 0),
-                name=l.get("name", ""),
+                league_id=league.get("id", 0),
+                name=league.get("name", ""),
                 country=c.get("name", ""),
-                type=l.get("type", "League"),
+                type=league.get("type", "League"),
                 current_season=latest,
-                logo_url=l.get("logo", ""),
+                logo_url=league.get("logo", ""),
             )
         return None
 
@@ -176,12 +181,14 @@ class ApiFootballScraper:
         teams = []
         for item in data.get("response", []):
             t = item.get("team", {})
-            teams.append(TeamInfo(
-                team_id=t.get("id", 0),
-                name=t.get("name", ""),
-                country=t.get("country", ""),
-                logo_url=t.get("logo", ""),
-            ))
+            teams.append(
+                TeamInfo(
+                    team_id=t.get("id", 0),
+                    name=t.get("name", ""),
+                    country=t.get("country", ""),
+                    logo_url=t.get("logo", ""),
+                )
+            )
         return teams
 
     # ---- 积分榜 ----
@@ -197,36 +204,43 @@ class ApiFootballScraper:
                 all_stats = entry.get("all", {})
                 home_stats = entry.get("home", {})
                 away_stats = entry.get("away", {})
-                standings.append({
-                    "rank": entry.get("rank", 0),
-                    "team_id": team.get("id"),
-                    "team_name": team.get("name"),
-                    "points": entry.get("points", 0),
-                    "played": all_stats.get("played", 0),
-                    "win": all_stats.get("win", 0),
-                    "draw": all_stats.get("draw", 0),
-                    "lose": all_stats.get("lose", 0),
-                    "goals_for": all_stats.get("goals", {}).get("for", 0),
-                    "goals_against": all_stats.get("goals", {}).get("against", 0),
-                    "goals_for_home": home_stats.get("goals", {}).get("for", 0),
-                    "goals_against_away": away_stats.get("goals", {}).get("against", 0),
-                    "form": entry.get("form", ""),
-                })
+                standings.append(
+                    {
+                        "rank": entry.get("rank", 0),
+                        "team_id": team.get("id"),
+                        "team_name": team.get("name"),
+                        "points": entry.get("points", 0),
+                        "played": all_stats.get("played", 0),
+                        "win": all_stats.get("win", 0),
+                        "draw": all_stats.get("draw", 0),
+                        "lose": all_stats.get("lose", 0),
+                        "goals_for": all_stats.get("goals", {}).get("for", 0),
+                        "goals_against": all_stats.get("goals", {}).get("against", 0),
+                        "goals_for_home": home_stats.get("goals", {}).get("for", 0),
+                        "goals_against_away": away_stats.get("goals", {}).get("against", 0),
+                        "form": entry.get("form", ""),
+                    }
+                )
         return standings
 
     # ---- 赛程 (分页迭代) ----
 
     def get_fixtures(
-        self, league_id: int, season: int,
+        self,
+        league_id: int,
+        season: int,
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
-        status: Optional[str] = None,       # "FT" | "NS" | "LIVE"
+        status: Optional[str] = None,  # "FT" | "NS" | "LIVE"
     ) -> list[MatchInfo]:
         """获取赛程"""
         params = {"league": league_id, "season": season}
-        if date_from: params["from"] = date_from
-        if date_to: params["to"] = date_to
-        if status: params["status"] = status
+        if date_from:
+            params["from"] = date_from
+        if date_to:
+            params["to"] = date_to
+        if status:
+            params["status"] = status
 
         return self._fetch_all_pages("/fixtures", params, self._parse_fixture)
 
@@ -253,15 +267,15 @@ class ApiFootballScraper:
     def _parse_fixture(self, item: dict) -> Optional[MatchInfo]:
         """解析单场比赛"""
         f = item.get("fixture", {})
-        l = item.get("league", {})
+        league = item.get("league", {})
         teams = item.get("teams", {})
         goals = item.get("goals", {})
         score = item.get("score", {})
 
         return MatchInfo(
             fixture_id=f.get("id", 0),
-            league_id=l.get("id", 0),
-            league_name=l.get("name", ""),
+            league_id=league.get("id", 0),
+            league_name=league.get("name", ""),
             date=f.get("date", ""),
             status=f.get("status", {}).get("short", "NS"),
             home_team_id=teams.get("home", {}).get("id", 0),
@@ -273,18 +287,26 @@ class ApiFootballScraper:
             ht_home_score=score.get("halftime", {}).get("home"),
             ht_away_score=score.get("halftime", {}).get("away"),
             venue=f.get("venue", {}).get("name", ""),
-            round_name=l.get("round", "").replace("Regular Season - ", ""),
+            round_name=league.get("round", "").replace("Regular Season - ", ""),
         )
 
     # ---- 球队统计 ----
 
     def get_team_statistics(
-        self, league_id: int, team_id: int, season: int,
+        self,
+        league_id: int,
+        team_id: int,
+        season: int,
     ) -> Optional[TeamStats]:
         """获取球队赛季统计数据"""
-        data = self.client.get("/teams/statistics", {
-            "league": league_id, "team": team_id, "season": season,
-        })
+        data = self.client.get(
+            "/teams/statistics",
+            {
+                "league": league_id,
+                "team": team_id,
+                "season": season,
+            },
+        )
         resp = data.get("response", {})
         if not resp:
             return None
@@ -316,10 +338,13 @@ class ApiFootballScraper:
 
     def get_h2h(self, team1_id: int, team2_id: int, last_n: int = 10) -> list[MatchInfo]:
         """获取两队历史交锋"""
-        data = self.client.get("/fixtures/headtohead", {
-            "h2h": f"{team1_id}-{team2_id}",
-            "last": last_n,
-        })
+        data = self.client.get(
+            "/fixtures/headtohead",
+            {
+                "h2h": f"{team1_id}-{team2_id}",
+                "last": last_n,
+            },
+        )
         matches = []
         for item in data.get("response", []):
             m = self._parse_fixture(item)

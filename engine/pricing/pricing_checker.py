@@ -5,6 +5,7 @@
   #14 高赔率场景 EV 折扣 — 赔率> ceiling 时打折扣
   #16 输出含置信度
 """
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
@@ -31,7 +32,7 @@ class PricingResult:
     away_odds_deviation: float = 0.0
     payout_analysis: str = ""
     # 新增
-    ev_confidence_penalty: float = 0.0     # 高赔率场景的置信度惩罚 (#14)
+    ev_confidence_penalty: float = 0.0  # 高赔率场景的置信度惩罚 (#14)
     notes: list[str] = field(default_factory=list)
 
 
@@ -66,7 +67,7 @@ def check_market_pricing(
 
     penalty = max(1 - discount_home, 1 - discount_draw, 1 - discount_away)
     if penalty > 0:
-        notes.append(f"高赔率EV折扣系数: {1-penalty:.0%}")
+        notes.append(f"高赔率EV折扣系数: {1 - penalty:.0%}")
 
     # ---- 2. 偏差 ----
     fair_home = 1 / model_prob_home if model_prob_home > 0 else 999
@@ -93,8 +94,9 @@ def check_market_pricing(
         notes.append("无正EV方向，市场定价充分")
 
     # ---- 4. 水位分析 ----
-    payout_analysis = _analyze_payout(market_home_odds, market_draw_odds, market_away_odds,
-                                      dev_home, dev_draw, dev_away)
+    payout_analysis = _analyze_payout(
+        market_home_odds, market_draw_odds, market_away_odds, dev_home, dev_draw, dev_away
+    )
 
     # ---- 5. 综合 ----
     if best_ev > 0.08:
@@ -106,8 +108,11 @@ def check_market_pricing(
 
     return PricingResult(
         verdict=verdict,
-        ev_home=round(ev_home, 4), ev_draw=round(ev_draw, 4), ev_away=round(ev_away, 4),
-        best_value_side=best_value_side, best_ev=round(best_ev, 4),
+        ev_home=round(ev_home, 4),
+        ev_draw=round(ev_draw, 4),
+        ev_away=round(ev_away, 4),
+        best_value_side=best_value_side,
+        best_ev=round(best_ev, 4),
         home_odds_deviation=round(dev_home, 4),
         draw_odds_deviation=round(dev_draw, 4),
         away_odds_deviation=round(dev_away, 4),
@@ -126,13 +131,16 @@ def _high_odds_discount(odds: float, cfg: PricingConfig) -> float:
     return 1.0
 
 
-def _analyze_payout(home: float, draw: float, away: float,
-                    dh: float, dd: float, da: float) -> str:
-    raw = 1/home + 1/draw + 1/away
-    payout = 1/raw
+def _analyze_payout(home: float, draw: float, away: float, dh: float, dd: float, da: float) -> str:
+    raw = 1 / home + 1 / draw + 1 / away
+    payout = 1 / raw
     parts = [f"返还率: {payout:.1%}"]
-    if dh > 0.05: parts.append(f"主胜偏高 {dh:+.1%}")
-    elif dh < -0.05: parts.append(f"主胜偏低 {dh:+.1%}")
-    if dd > 0.05: parts.append(f"平赔偏高 {dd:+.1%}")
-    if da > 0.05: parts.append(f"客胜偏高 {da:+.1%}")
+    if dh > 0.05:
+        parts.append(f"主胜偏高 {dh:+.1%}")
+    elif dh < -0.05:
+        parts.append(f"主胜偏低 {dh:+.1%}")
+    if dd > 0.05:
+        parts.append(f"平赔偏高 {dd:+.1%}")
+    if da > 0.05:
+        parts.append(f"客胜偏高 {da:+.1%}")
     return " | ".join(parts)
