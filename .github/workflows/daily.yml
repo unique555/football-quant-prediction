@@ -1,0 +1,78 @@
+name: 📊 Daily Football Predictions
+
+on:
+  schedule:
+    # 北京时间每天早上 9:00 (UTC 01:00)
+    - cron: '0 1 * * *'
+    # 北京时间每天晚上 23:00 (UTC 15:00) 赛后复盘
+    - cron: '0 15 * * *'
+  workflow_dispatch:  # 手动触发
+
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install pandas numpy requests
+      
+      - name: Create .env
+        run: |
+          cat > .env << 'EOF'
+          FOOTBALL_DATA_KEYS=${{ secrets.FOOTBALL_DATA_KEYS }}
+          ODDSPAPI_KEY=${{ secrets.ODDSPAPI_KEY }}
+          API_FOOTBALL_KEYS=${{ secrets.API_FOOTBALL_KEYS }}
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          EOF
+      
+      - name: Setup workspace symlink
+        run: sudo ln -s $GITHUB_WORKSPACE /workspace/football-quant-prediction
+      
+      - name: Run daily prediction
+        run: python3 run_daily.py
+        timeout-minutes: 15
+      
+      - name: Run daily analysis (if evening run)
+        if: github.event.schedule == '0 15 * * *'
+        run: |
+          YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)
+          python3 run_analysis.py --date $YESTERDAY
+        timeout-minutes: 15
+      
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: reports/
+          retention-days: 7
+
+  weekly:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 1 * * *'  # 周一早上 (UTC Sunday 01:00)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy requests
+      - name: Setup workspace symlink
+        run: sudo ln -s $GITHUB_WORKSPACE /workspace/football-quant-prediction
+      - name: Create .env
+        run: |
+          cat > .env << 'EOF'
+          FOOTBALL_DATA_KEYS=${{ secrets.FOOTBALL_DATA_KEYS }}
+          ODDSPAPI_KEY=${{ secrets.ODDSPAPI_KEY }}
+          API_FOOTBALL_KEYS=${{ secrets.API_FOOTBALL_KEYS }}
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          EOF
+      - name: Run weekly review
+        run: python3 run_weekly.py
+        timeout-minutes: 15
