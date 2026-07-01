@@ -49,6 +49,18 @@ async def health_check():
     return {"status": "ok", "version": "0.1.0"}
 
 
+@app.get("/v1/system/status")
+async def system_status():
+    return {
+        "status": "online",
+        "environment": settings.ENVIRONMENT,
+        "database": "configured" if settings.DATABASE_URL else "missing",
+        "api_football": "configured" if settings.API_FOOTBALL_PRIMARY_KEY else "missing",
+        "telegram_bot": "configured" if settings.TELEGRAM_BOT_TOKEN else "missing",
+        "mlflow": "configured" if settings.MLFLOW_TRACKING_URI else "missing",
+    }
+
+
 @app.get("/v1/stats")
 async def stats(db: AsyncSession = Depends(get_db)):
     return await stats_summary(db)
