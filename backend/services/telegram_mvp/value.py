@@ -95,14 +95,28 @@ class ValueSelector:
         ah = aggregates.get("asian_handicap")
         if ah:
             line = ah.avg_odds.get("line", 0.0)
-            candidates.append(self._candidate(fixture_id, ah, "home", f"亚盘：主队 {line:+g}", model.ah_home, "home"))
-            candidates.append(self._candidate(fixture_id, ah, "away", f"亚盘：客队 {-line:+g}", model.ah_away, "away"))
+            candidates.append(
+                self._candidate(
+                    fixture_id, ah, "home", f"亚盘：主队 {line:+g}", model.ah_home, "home"
+                )
+            )
+            candidates.append(
+                self._candidate(
+                    fixture_id, ah, "away", f"亚盘：客队 {-line:+g}", model.ah_away, "away"
+                )
+            )
 
         ou = aggregates.get("over_under")
         if ou:
             line = ou.avg_odds.get("line", 0.0)
-            candidates.append(self._candidate(fixture_id, ou, "over", f"大小球：大 {line:g}", model.over, "over"))
-            candidates.append(self._candidate(fixture_id, ou, "under", f"大小球：小 {line:g}", model.under, "under"))
+            candidates.append(
+                self._candidate(fixture_id, ou, "over", f"大小球：大 {line:g}", model.over, "over")
+            )
+            candidates.append(
+                self._candidate(
+                    fixture_id, ou, "under", f"大小球：小 {line:g}", model.under, "under"
+                )
+            )
 
         selected = [item for item in candidates if item.selected]
         if selected:
@@ -123,7 +137,11 @@ class ValueSelector:
             or kelly > cfg.max_kelly
         ):
             return "高"
-        if aggregate.bookmaker_count < 4 or aggregate.consensus_score < 72 or aggregate.disagreement_index > 0.07:
+        if (
+            aggregate.bookmaker_count < 4
+            or aggregate.consensus_score < 72
+            or aggregate.disagreement_index > 0.07
+        ):
             return "中"
         return "低"
 

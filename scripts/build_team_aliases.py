@@ -22,10 +22,21 @@ from services.telegram_mvp.alias_builder import refresh_alias_file  # noqa: E402
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build API-Football Chinese team alias file.")
-    parser.add_argument("--output", default="data/team_aliases.generated.json", help="Output JSON path.")
+    parser.add_argument(
+        "--output", default="data/team_aliases.generated.json", help="Output JSON path."
+    )
     parser.add_argument("--days-before", type=int, default=1, help="Past fixture days to include.")
-    parser.add_argument("--days", "--days-after", dest="days_after", type=int, default=14, help="Future fixture days to include.")
-    parser.add_argument("--max-teams", type=int, default=None, help="Limit teams for a small test run.")
+    parser.add_argument(
+        "--days",
+        "--days-after",
+        dest="days_after",
+        type=int,
+        default=14,
+        help="Future fixture days to include.",
+    )
+    parser.add_argument(
+        "--max-teams", type=int, default=None, help="Limit teams for a small test run."
+    )
     parser.add_argument("--verbose", action="store_true", help="Enable detailed logs.")
     return parser.parse_args()
 

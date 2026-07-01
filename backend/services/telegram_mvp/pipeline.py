@@ -64,7 +64,11 @@ class PipelineResult:
 def _parse_dt(date_text: str) -> datetime:
     if not date_text:
         return datetime.now(timezone.utc)
-    return datetime.fromisoformat(date_text.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
+    return (
+        datetime.fromisoformat(date_text.replace("Z", "+00:00"))
+        .astimezone(timezone.utc)
+        .replace(tzinfo=None)
+    )
 
 
 def _fixture_to_match_dict(item: dict[str, Any]) -> dict[str, Any]:
@@ -97,10 +101,18 @@ async def load_aliases(session: AsyncSession) -> dict[str, str]:
 
 
 async def load_alias_team_ids(session: AsyncSession) -> dict[str, int]:
-    rows = (await session.execute(select(TeamAlias).where(TeamAlias.api_team_id.is_not(None)))).scalars().all()
+    rows = (
+        (await session.execute(select(TeamAlias).where(TeamAlias.api_team_id.is_not(None))))
+        .scalars()
+        .all()
+    )
     team_ids = load_file_alias_team_ids()
-    team_ids.update({normalize_key(row.api_team_name): int(row.api_team_id) for row in rows if row.api_team_id})
-    team_ids.update({normalize_key(row.alias): int(row.api_team_id) for row in rows if row.api_team_id})
+    team_ids.update(
+        {normalize_key(row.api_team_name): int(row.api_team_id) for row in rows if row.api_team_id}
+    )
+    team_ids.update(
+        {normalize_key(row.alias): int(row.api_team_id) for row in rows if row.api_team_id}
+    )
     return team_ids
 
 
@@ -169,7 +181,9 @@ def _fixtures_by_team_fallback(
     return fixtures
 
 
-def _query_alias_pairs_for_fixture(query: MatchQuery, fixture: dict[str, Any]) -> tuple[tuple[str, str], ...]:
+def _query_alias_pairs_for_fixture(
+    query: MatchQuery, fixture: dict[str, Any]
+) -> tuple[tuple[str, str], ...]:
     teams = fixture.get("teams", {})
     home_name = teams.get("home", {}).get("name", "")
     away_name = teams.get("away", {}).get("name", "")
@@ -180,7 +194,9 @@ def _query_alias_pairs_for_fixture(query: MatchQuery, fixture: dict[str, Any]) -
     return ((query.raw_home, home_name), (query.raw_away, away_name))
 
 
-async def remember_query_aliases(session: AsyncSession, query: MatchQuery, fixture: dict[str, Any]) -> None:
+async def remember_query_aliases(
+    session: AsyncSession, query: MatchQuery, fixture: dict[str, Any]
+) -> None:
     teams = fixture.get("teams", {})
     id_by_name = {
         teams.get("home", {}).get("name", ""): teams.get("home", {}).get("id"),
@@ -194,7 +210,9 @@ async def remember_query_aliases(session: AsyncSession, query: MatchQuery, fixtu
         if normalize_key(alias) == normalize_key(api_team_name):
             continue
         key = normalize_key(alias)
-        existing = (await session.execute(select(TeamAlias).where(TeamAlias.alias_key == key))).scalar_one_or_none()
+        existing = (
+            await session.execute(select(TeamAlias).where(TeamAlias.alias_key == key))
+        ).scalar_one_or_none()
         if existing:
             existing.alias = alias
             existing.api_team_name = api_team_name
@@ -233,12 +251,18 @@ async def lookup_fixture_cache(session: AsyncSession, query: MatchQuery) -> int 
     return cached.fixture_id if cached else None
 
 
-async def remember_fixture_cache(session: AsyncSession, query: MatchQuery, candidate: FixtureCandidate) -> None:
+async def remember_fixture_cache(
+    session: AsyncSession, query: MatchQuery, candidate: FixtureCandidate
+) -> None:
     home_key, away_key = _fixture_cache_keys(query)
-    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=FIXTURE_CACHE_TTL_DAYS)
+    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
+        days=FIXTURE_CACHE_TTL_DAYS
+    )
     existing = (
         await session.execute(
-            select(FixtureAlias).where(FixtureAlias.home_key == home_key, FixtureAlias.away_key == away_key)
+            select(FixtureAlias).where(
+                FixtureAlias.home_key == home_key, FixtureAlias.away_key == away_key
+            )
         )
     ).scalar_one_or_none()
     if existing:
@@ -278,7 +302,9 @@ async def upsert_match(session: AsyncSession, fixture: dict[str, Any]) -> Match:
     return item
 
 
-def _estimate_model_probs(aggregate, api_prediction: dict[str, Any] | None = None) -> ModelProbabilities:
+def _estimate_model_probs(
+    aggregate, api_prediction: dict[str, Any] | None = None
+) -> ModelProbabilities:
     if api_prediction:
         percent = api_prediction.get("predictions", {}).get("percent", {})
         try:
@@ -387,7 +413,9 @@ def _value_conclusion(best: ValueCandidateDTO) -> str:
     return "模型概率与市场价格存在正差，欧赔与盘口方向基本一致。建议控制风险。"
 
 
-def _no_value_reasons(candidates: list[ValueCandidateDTO], aggregates: dict[str, MarketAggregate | None]) -> list[str]:
+def _no_value_reasons(
+    candidates: list[ValueCandidateDTO], aggregates: dict[str, MarketAggregate | None]
+) -> list[str]:
     reasons: list[str] = []
     if not aggregates.get("1x2"):
         reasons.append("胜平负多机构赔率不足")
@@ -415,7 +443,11 @@ def format_analysis_message(
 ) -> str:
     selected = [item for item in candidates if item.selected]
     best = selected[0] if selected else None
-    kickoff = match.match_date.replace(tzinfo=timezone.utc).astimezone(SHANGHAI_TZ).strftime("%Y-%m-%d %H:%M")
+    kickoff = (
+        match.match_date.replace(tzinfo=timezone.utc)
+        .astimezone(SHANGHAI_TZ)
+        .strftime("%Y-%m-%d %H:%M")
+    )
     one_x_two = aggregates.get("1x2")
     ah = aggregates.get("asian_handicap")
     lines = [
@@ -506,12 +538,16 @@ async def load_recent_odds_snapshots(
 ) -> list[BookmakerOdds]:
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=max_age_minutes)
     rows = (
-        await session.execute(
-            select(OddsSnapshot)
-            .where(OddsSnapshot.fixture_id == fixture_id, OddsSnapshot.captured_at >= cutoff)
-            .order_by(desc(OddsSnapshot.captured_at))
+        (
+            await session.execute(
+                select(OddsSnapshot)
+                .where(OddsSnapshot.fixture_id == fixture_id, OddsSnapshot.captured_at >= cutoff)
+                .order_by(desc(OddsSnapshot.captured_at))
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     parsed: list[BookmakerOdds] = []
     for row in rows:
         parsed.append(
@@ -610,7 +646,9 @@ class TelegramAnalysisPipeline:
         if not candidates:
             return PipelineResult("not_found", f"❌ API-Football 未找到比赛: {query.raw}")
         if should_return_candidates(candidates):
-            return PipelineResult("candidates", format_candidate_list(candidates), candidates=candidates)
+            return PipelineResult(
+                "candidates", format_candidate_list(candidates), candidates=candidates
+            )
         await remember_fixture_cache(session, query, candidates[0])
         return await self.analyze_fixture(session, candidates[0].fixture_id, source_query=query)
 
@@ -639,8 +677,12 @@ class TelegramAnalysisPipeline:
             "asian_handicap": aggregate_two_way(parsed_odds, "asian_handicap"),
             "over_under": aggregate_two_way(parsed_odds, "over_under"),
         }
-        prediction_response = self.api.get("/predictions", {"fixture": fixture_id}).get("response", [])
-        model_probs = _estimate_model_probs(aggregate, prediction_response[0] if prediction_response else None)
+        prediction_response = self.api.get("/predictions", {"fixture": fixture_id}).get(
+            "response", []
+        )
+        model_probs = _estimate_model_probs(
+            aggregate, prediction_response[0] if prediction_response else None
+        )
         candidates = select_value_candidates(fixture_id, model_probs, aggregates)
         message = format_analysis_message(match, aggregates, candidates)
 
@@ -664,20 +706,26 @@ class TelegramAnalysisPipeline:
 async def stats_summary(session: AsyncSession) -> dict[str, Any]:
     total_predictions = (await session.execute(select(func.count(Prediction.id)))).scalar_one()
     value_predictions = (
-        await session.execute(select(func.count(Prediction.id)).where(Prediction.best_pick.is_not(None)))
+        await session.execute(
+            select(func.count(Prediction.id)).where(Prediction.best_pick.is_not(None))
+        )
     ).scalar_one()
     recent = (
-        await session.execute(
-            select(Prediction).order_by(desc(Prediction.created_at)).limit(20)
-        )
-    ).scalars().all()
+        (await session.execute(select(Prediction).order_by(desc(Prediction.created_at)).limit(20)))
+        .scalars()
+        .all()
+    )
     return {
         "total_predictions": total_predictions,
         "value_predictions": value_predictions,
         "settled_predictions": (
-            await session.execute(select(func.count(Prediction.id)).where(Prediction.settled_status != "pending"))
+            await session.execute(
+                select(func.count(Prediction.id)).where(Prediction.settled_status != "pending")
+            )
         ).scalar_one(),
-        "recent_value_rate": round(value_predictions / total_predictions, 4) if total_predictions else 0,
+        "recent_value_rate": round(value_predictions / total_predictions, 4)
+        if total_predictions
+        else 0,
         "recent": [
             {
                 "fixture_id": item.fixture_id,
@@ -728,16 +776,24 @@ def _hit(status: str | None) -> bool:
 
 async def performance_summary(session: AsyncSession) -> dict[str, Any]:
     candidates = (
-        await session.execute(select(ValueCandidate).where(ValueCandidate.selected.is_(True)))
-    ).scalars().all()
-    settled = [item for item in candidates if item.settled_status and item.settled_status != "pending"]
+        (await session.execute(select(ValueCandidate).where(ValueCandidate.selected.is_(True))))
+        .scalars()
+        .all()
+    )
+    settled = [
+        item for item in candidates if item.settled_status and item.settled_status != "pending"
+    ]
 
     def summarize(rows: list[ValueCandidate]) -> dict[str, Any]:
         if not rows:
             return {"count": 0, "hit_rate": 0.0, "profit_units": 0.0}
         hits = sum(1 for row in rows if _hit(row.settled_status))
         profit = sum(float(row.profit_units or 0) for row in rows)
-        return {"count": len(rows), "hit_rate": round(hits / len(rows), 4), "profit_units": round(profit, 3)}
+        return {
+            "count": len(rows),
+            "hit_rate": round(hits / len(rows), 4),
+            "profit_units": round(profit, 3),
+        }
 
     def group_by(key_func) -> dict[str, Any]:
         groups: dict[str, list[ValueCandidate]] = {}
@@ -761,7 +817,9 @@ def review_recommendations(rows: list[ValueCandidate]) -> list[str]:
     recs: list[str] = []
     high_disagreement = [row for row in rows if (row.disagreement_index or 0) > 0.07]
     if high_disagreement:
-        hit_rate = sum(1 for row in high_disagreement if _hit(row.settled_status)) / len(high_disagreement)
+        hit_rate = sum(1 for row in high_disagreement if _hit(row.settled_status)) / len(
+            high_disagreement
+        )
         if hit_rate < 0.45:
             recs.append("高分歧区间表现偏弱，建议提高分歧扣分或降低推荐优先级。")
     low_consensus = [row for row in rows if (row.consensus_score or 0) < 70]
@@ -780,7 +838,9 @@ async def add_alias(session: AsyncSession, alias: str, api_team_name: str) -> Te
     if not alias or not api_team_name:
         raise ValueError("alias and api_team_name are required")
     key = normalize_key(alias)
-    existing = (await session.execute(select(TeamAlias).where(TeamAlias.alias_key == key))).scalar_one_or_none()
+    existing = (
+        await session.execute(select(TeamAlias).where(TeamAlias.alias_key == key))
+    ).scalar_one_or_none()
     if existing:
         existing.alias = alias
         existing.api_team_name = api_team_name

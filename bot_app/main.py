@@ -49,10 +49,16 @@ class TelegramBotWorker:
         self.candidate_cache: dict[str, CandidateCache] = {}
         self.offset = 0
 
-    def send_message(self, chat_id: int | str, text: str, reply_markup: dict[str, Any] | None = None) -> None:
+    def send_message(
+        self, chat_id: int | str, text: str, reply_markup: dict[str, Any] | None = None
+    ) -> None:
         chunks = [text[i : i + 3800] for i in range(0, len(text), 3800)] or [text]
         for chunk in chunks:
-            payload: dict[str, Any] = {"chat_id": chat_id, "text": chunk, "disable_web_page_preview": True}
+            payload: dict[str, Any] = {
+                "chat_id": chat_id,
+                "text": chunk,
+                "disable_web_page_preview": True,
+            }
             if reply_markup:
                 payload["reply_markup"] = reply_markup
             resp = requests.post(
@@ -66,7 +72,11 @@ class TelegramBotWorker:
     def get_updates(self) -> list[dict[str, Any]]:
         resp = requests.get(
             f"{self.base_url}/getUpdates",
-            params={"offset": self.offset, "timeout": 30, "allowed_updates": ["message", "callback_query"]},
+            params={
+                "offset": self.offset,
+                "timeout": 30,
+                "allowed_updates": ["message", "callback_query"],
+            },
             timeout=35,
         )
         resp.raise_for_status()
@@ -124,7 +134,10 @@ class TelegramBotWorker:
         normalized = text.replace("／", "/").strip()
         command = self.command_name(normalized)
 
-        if command in {"/start", "/help", "/menu", "/菜单", "/帮助"} or normalized in {"帮助", "菜单"}:
+        if command in {"/start", "/help", "/menu", "/菜单", "/帮助"} or normalized in {
+            "帮助",
+            "菜单",
+        }:
             self.send_message(chat_id, self.help_text(), reply_markup=self.main_menu())
             return
 
@@ -143,7 +156,10 @@ class TelegramBotWorker:
             return
 
         if command == "/web":
-            self.send_message(chat_id, "🌐 后台网页：Docker 本地 http://localhost:3000\nRailway/服务器部署后请打开你的前端域名。")
+            self.send_message(
+                chat_id,
+                "🌐 后台网页：Docker 本地 http://localhost:3000\nRailway/服务器部署后请打开你的前端域名。",
+            )
             return
 
         if command == "/addalias":
@@ -191,7 +207,11 @@ class TelegramBotWorker:
             return
 
         if command == "/analyze":
-            normalized = "/分析 " + normalized.split(maxsplit=1)[1].strip() if len(normalized.split(maxsplit=1)) > 1 else "/分析"
+            normalized = (
+                "/分析 " + normalized.split(maxsplit=1)[1].strip()
+                if len(normalized.split(maxsplit=1)) > 1
+                else "/分析"
+            )
 
         if command in {"/分析", "/analyze"} or parse_match_text(normalized):
             display_text = normalized.replace("/分析", "").replace("/analyze", "").strip()
@@ -211,7 +231,11 @@ class TelegramBotWorker:
                 )
             self.send_message(chat_id, result.message)
             if result.fixture_id:
-                self.send_message(chat_id, "可关注本场，赛前和完场后接收提醒。", reply_markup=self.follow_markup(result.fixture_id))
+                self.send_message(
+                    chat_id,
+                    "可关注本场，赛前和完场后接收提醒。",
+                    reply_markup=self.follow_markup(result.fixture_id),
+                )
             return
 
         self.send_message(chat_id, "未识别的指令。发送 /帮助 查看用法。")
@@ -236,7 +260,11 @@ class TelegramBotWorker:
         user_id = str((callback.get("from") or {}).get("id") or "")
         data = callback.get("data") or ""
         if query_id:
-            requests.post(f"{self.base_url}/answerCallbackQuery", json={"callback_query_id": query_id}, timeout=10)
+            requests.post(
+                f"{self.base_url}/answerCallbackQuery",
+                json={"callback_query_id": query_id},
+                timeout=10,
+            )
         if not chat_id:
             return
         if data == "menu:today":
@@ -265,9 +293,13 @@ class TelegramBotWorker:
                     )
                 ).scalar_one_or_none()
                 if not existing:
-                    session.add(Subscription(user_id=user_id, chat_id=str(chat_id), fixture_id=fixture_id))
+                    session.add(
+                        Subscription(user_id=user_id, chat_id=str(chat_id), fixture_id=fixture_id)
+                    )
                     await session.commit()
-            self.send_message(chat_id, f"✅ 已关注 fixture {fixture_id}，将提醒赛前6小时、赛前1小时和完场复盘。")
+            self.send_message(
+                chat_id, f"✅ 已关注 fixture {fixture_id}，将提醒赛前6小时、赛前1小时和完场复盘。"
+            )
 
     async def handle_candidate_choice(self, chat_id: int, choice: int) -> None:
         cache = self.candidate_cache.get(str(chat_id))
@@ -278,7 +310,9 @@ class TelegramBotWorker:
             self.send_message(chat_id, "编号无效，请回复候选列表中的编号。")
             return
         candidate = cache.candidates[choice - 1]
-        self.send_message(chat_id, f"🔍 正在分析: {candidate.home_team} vs {candidate.away_team}...")
+        self.send_message(
+            chat_id, f"🔍 正在分析: {candidate.home_team} vs {candidate.away_team}..."
+        )
         try:
             async with AsyncSessionLocal() as session:
                 result = await self.pipeline.analyze_fixture(
@@ -287,7 +321,9 @@ class TelegramBotWorker:
                     source_query=cache.query,
                 )
         except Exception as exc:
-            logger.exception("candidate analysis failed chat=%s fixture_id=%s", chat_id, candidate.fixture_id)
+            logger.exception(
+                "candidate analysis failed chat=%s fixture_id=%s", chat_id, candidate.fixture_id
+            )
             self.send_message(chat_id, f"❌ 分析失败：{exc}")
             return
         self.candidate_cache.pop(str(chat_id), None)
@@ -309,17 +345,28 @@ class TelegramBotWorker:
             return
         fixture_id = int(arg)
         async with AsyncSessionLocal() as session:
-            match = (await session.execute(select(Match).where(Match.api_fixture_id == fixture_id))).scalar_one_or_none()
+            match = (
+                await session.execute(select(Match).where(Match.api_fixture_id == fixture_id))
+            ).scalar_one_or_none()
             pred = (
                 await session.execute(
-                    select(Prediction).where(Prediction.fixture_id == fixture_id).order_by(desc(Prediction.created_at)).limit(1)
+                    select(Prediction)
+                    .where(Prediction.fixture_id == fixture_id)
+                    .order_by(desc(Prediction.created_at))
+                    .limit(1)
                 )
             ).scalar_one_or_none()
-            result = (await session.execute(select(Result).where(Result.fixture_id == fixture_id))).scalar_one_or_none()
+            result = (
+                await session.execute(select(Result).where(Result.fixture_id == fixture_id))
+            ).scalar_one_or_none()
         if not match:
             self.send_message(chat_id, f"未找到 fixture_id={fixture_id} 的比赛记录。")
             return
-        score = f"{result.home_goals}:{result.away_goals}" if result and result.home_goals is not None else "未完赛"
+        score = (
+            f"{result.home_goals}:{result.away_goals}"
+            if result and result.home_goals is not None
+            else "未完赛"
+        )
         lines = [
             f"📊 {match.home_team_name} vs {match.away_team_name}",
             f"🏆 {match.league_name or '-'}",
@@ -340,13 +387,17 @@ class TelegramBotWorker:
         fixture_id = int(arg)
         async with AsyncSessionLocal() as session:
             rows = (
-                await session.execute(
-                    select(OddsSnapshot)
-                    .where(OddsSnapshot.fixture_id == fixture_id)
-                    .order_by(desc(OddsSnapshot.captured_at))
-                    .limit(12)
+                (
+                    await session.execute(
+                        select(OddsSnapshot)
+                        .where(OddsSnapshot.fixture_id == fixture_id)
+                        .order_by(desc(OddsSnapshot.captured_at))
+                        .limit(12)
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
         if not rows:
             self.send_message(chat_id, f"fixture {fixture_id} 暂无赔率快照。")
             return
@@ -370,10 +421,15 @@ class TelegramBotWorker:
             return
         fixture_id = int(arg)
         async with AsyncSessionLocal() as session:
-            match = (await session.execute(select(Match).where(Match.api_fixture_id == fixture_id))).scalar_one_or_none()
+            match = (
+                await session.execute(select(Match).where(Match.api_fixture_id == fixture_id))
+            ).scalar_one_or_none()
             pred = (
                 await session.execute(
-                    select(Prediction).where(Prediction.fixture_id == fixture_id).order_by(desc(Prediction.created_at)).limit(1)
+                    select(Prediction)
+                    .where(Prediction.fixture_id == fixture_id)
+                    .order_by(desc(Prediction.created_at))
+                    .limit(1)
                 )
             ).scalar_one_or_none()
         if not match or not pred:
@@ -394,7 +450,9 @@ class TelegramBotWorker:
             f"价值评分：{pred.value_score or 0}%",
             "",
             "复盘结论：",
-            "本场方向命中。" if pred.settled_status in {"win", "half_win"} else "本场方向未命中或走水。",
+            "本场方向命中。"
+            if pred.settled_status in {"win", "half_win"}
+            else "本场方向未命中或走水。",
         ]
         self.send_message(chat_id, "\n".join(lines))
 
@@ -407,11 +465,15 @@ class TelegramBotWorker:
         async with AsyncSessionLocal() as session:
             existing = (
                 await session.execute(
-                    select(Subscription).where(Subscription.user_id == str(chat_id), Subscription.fixture_id == fixture_id)
+                    select(Subscription).where(
+                        Subscription.user_id == str(chat_id), Subscription.fixture_id == fixture_id
+                    )
                 )
             ).scalar_one_or_none()
             if not existing:
-                session.add(Subscription(user_id=str(chat_id), chat_id=str(chat_id), fixture_id=fixture_id))
+                session.add(
+                    Subscription(user_id=str(chat_id), chat_id=str(chat_id), fixture_id=fixture_id)
+                )
                 await session.commit()
         self.send_message(chat_id, f"✅ 已关注 fixture {fixture_id}")
 
@@ -423,7 +485,9 @@ class TelegramBotWorker:
         fixture_id = int(arg)
         async with AsyncSessionLocal() as session:
             await session.execute(
-                delete(Subscription).where(Subscription.user_id == str(chat_id), Subscription.fixture_id == fixture_id)
+                delete(Subscription).where(
+                    Subscription.user_id == str(chat_id), Subscription.fixture_id == fixture_id
+                )
             )
             await session.commit()
         self.send_message(chat_id, f"✅ 已取消关注 fixture {fixture_id}")
@@ -431,10 +495,17 @@ class TelegramBotWorker:
     async def handle_my_follows(self, chat_id: int) -> None:
         async with AsyncSessionLocal() as session:
             rows = (
-                await session.execute(
-                    select(Subscription).where(Subscription.user_id == str(chat_id)).order_by(desc(Subscription.created_at)).limit(10)
+                (
+                    await session.execute(
+                        select(Subscription)
+                        .where(Subscription.user_id == str(chat_id))
+                        .order_by(desc(Subscription.created_at))
+                        .limit(10)
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
         if not rows:
             self.send_message(chat_id, "你还没有关注比赛。")
             return
@@ -463,7 +534,11 @@ class TelegramBotWorker:
             return
         lines = ["🔥 高价值比赛", ""]
         for pred, match in rows:
-            title = f"{match.home_team_name} vs {match.away_team_name}" if match else f"fixture {pred.fixture_id}"
+            title = (
+                f"{match.home_team_name} vs {match.away_team_name}"
+                if match
+                else f"fixture {pred.fixture_id}"
+            )
             lines.append(
                 f"{title}\n"
                 f"方向：{pred.best_display_pick or '-'} | 评分 {pred.value_score or 0} | EV {pred.best_ev or 0:+.1%}\n"
@@ -561,7 +636,9 @@ class TelegramBotWorker:
 
     @staticmethod
     def follow_markup(fixture_id: int) -> dict[str, Any]:
-        return {"inline_keyboard": [[{"text": "关注比赛", "callback_data": f"follow:{fixture_id}"}]]}
+        return {
+            "inline_keyboard": [[{"text": "关注比赛", "callback_data": f"follow:{fixture_id}"}]]
+        }
 
     @staticmethod
     def status_text() -> str:
@@ -614,7 +691,11 @@ class TelegramBotWorker:
         self.clear_webhook()
         # Drop stale updates only once on startup.
         try:
-            updates = requests.get(f"{self.base_url}/getUpdates", params={"offset": -1}, timeout=10).json().get("result", [])
+            updates = (
+                requests.get(f"{self.base_url}/getUpdates", params={"offset": -1}, timeout=10)
+                .json()
+                .get("result", [])
+            )
             if updates:
                 self.offset = updates[-1]["update_id"] + 1
         except requests.RequestException:

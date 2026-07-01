@@ -47,12 +47,16 @@ def upgrade() -> None:
     op.create_index("ix_predictions_settled_status", "predictions", ["settled_status"])
 
     op.add_column("value_candidates", sa.Column("line", sa.Float(), nullable=True))
-    op.add_column("value_candidates", sa.Column("best_bookmaker", sa.String(length=100), nullable=True))
+    op.add_column(
+        "value_candidates", sa.Column("best_bookmaker", sa.String(length=100), nullable=True)
+    )
     op.add_column("value_candidates", sa.Column("data_quality_score", sa.Integer(), nullable=True))
     op.add_column("value_candidates", sa.Column("return_rate", sa.Float(), nullable=True))
     op.add_column("value_candidates", sa.Column("overround", sa.Float(), nullable=True))
     op.add_column("value_candidates", sa.Column("is_shadow", sa.Boolean(), nullable=True))
-    op.add_column("value_candidates", sa.Column("settled_status", sa.String(length=30), nullable=True))
+    op.add_column(
+        "value_candidates", sa.Column("settled_status", sa.String(length=30), nullable=True)
+    )
     op.add_column("value_candidates", sa.Column("profit_units", sa.Float(), nullable=True))
     op.add_column("value_candidates", sa.Column("settlement_note", sa.Text(), nullable=True))
     op.add_column("value_candidates", sa.Column("settled_at", sa.DateTime(), nullable=True))

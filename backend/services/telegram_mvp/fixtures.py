@@ -44,7 +44,9 @@ def fixture_match_score(item: dict[str, Any], query: MatchQuery) -> float:
     return max(direct, reverse)
 
 
-def rank_fixture_candidates(fixtures: list[dict[str, Any]], query: MatchQuery) -> list[FixtureCandidate]:
+def rank_fixture_candidates(
+    fixtures: list[dict[str, Any]], query: MatchQuery
+) -> list[FixtureCandidate]:
     now = datetime.now(SHANGHAI_TZ)
     ranked: list[FixtureCandidate] = []
 

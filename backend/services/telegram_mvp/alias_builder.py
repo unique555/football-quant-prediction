@@ -33,7 +33,9 @@ class TeamAliasRecord:
             {
                 alias.strip()
                 for alias in self.aliases
-                if alias and contains_cjk(alias) and normalize_key(alias) != normalize_key(self.api_team_name)
+                if alias
+                and contains_cjk(alias)
+                and normalize_key(alias) != normalize_key(self.api_team_name)
             },
             key=lambda item: (len(item), item),
         )
@@ -142,7 +144,7 @@ def collect_fixture_teams(
     records: dict[int, TeamAliasRecord] = {}
     for item in fixtures:
         for side in ("home", "away"):
-            team = (item.get("teams", {}).get(side) or {})
+            team = item.get("teams", {}).get(side) or {}
             team_id = team.get("id")
             name = (team.get("name") or "").strip()
             if not team_id or not name:
@@ -208,5 +210,7 @@ def refresh_alias_file(
     days_after: int = 14,
     max_teams: int | None = None,
 ) -> dict[str, Any]:
-    records = build_alias_records(days_before=days_before, days_after=days_after, max_teams=max_teams)
+    records = build_alias_records(
+        days_before=days_before, days_after=days_after, max_teams=max_teams
+    )
     return write_alias_file(records, output or default_output_path())

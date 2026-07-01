@@ -17,13 +17,17 @@ async def match_odds(match_id: str, db: AsyncSession = Depends(get_db)):
     """单场赔率快照."""
     fixture_id = int(match_id)
     rows = (
-        await db.execute(
-            select(OddsSnapshot)
-            .where(OddsSnapshot.fixture_id == fixture_id)
-            .order_by(desc(OddsSnapshot.captured_at))
-            .limit(100)
+        (
+            await db.execute(
+                select(OddsSnapshot)
+                .where(OddsSnapshot.fixture_id == fixture_id)
+                .order_by(desc(OddsSnapshot.captured_at))
+                .limit(100)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return [
         {
             "fixture_id": row.fixture_id,

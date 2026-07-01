@@ -5,7 +5,14 @@ from models.match import Match
 from models.odds import Odds
 from models.prediction import Prediction
 from models.team import Team
-from models.telegram_mvp import FixtureAlias, OddsSnapshot, Result, Subscription, TeamAlias, ValueCandidate
+from models.telegram_mvp import (
+    FixtureAlias,
+    OddsSnapshot,
+    Result,
+    Subscription,
+    TeamAlias,
+    ValueCandidate,
+)
 from models.user import User
 
 __all__ = [

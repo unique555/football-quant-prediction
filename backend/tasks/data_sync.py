@@ -71,7 +71,9 @@ async def import_alias_file_to_db(session, path: Path) -> int:
             key = normalize_key(alias)
             if not key or key == normalize_key(api_team_name):
                 continue
-            existing = (await session.execute(select(TeamAlias).where(TeamAlias.alias_key == key))).scalar_one_or_none()
+            existing = (
+                await session.execute(select(TeamAlias).where(TeamAlias.alias_key == key))
+            ).scalar_one_or_none()
             if existing:
                 existing.alias = alias
                 existing.api_team_name = api_team_name
@@ -110,14 +112,18 @@ async def _sync_odds() -> dict:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     async with AsyncSessionLocal() as session:
         matches = (
-            await session.execute(
-                select(Match).where(
-                    Match.api_fixture_id.is_not(None),
-                    Match.match_date >= now,
-                    Match.match_date <= now + timedelta(hours=25),
+            (
+                await session.execute(
+                    select(Match).where(
+                        Match.api_fixture_id.is_not(None),
+                        Match.match_date >= now,
+                        Match.match_date <= now + timedelta(hours=25),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         for match in matches:
             snapshot_type = snapshot_type_for(match.match_date, now)
             if not snapshot_type:
@@ -126,7 +132,9 @@ async def _sync_odds() -> dict:
             parsed = parse_api_football_odds(odds_response)
             if not parsed:
                 continue
-            await persist_odds_snapshots(session, match.api_fixture_id, parsed, snapshot_type=snapshot_type)
+            await persist_odds_snapshots(
+                session, match.api_fixture_id, parsed, snapshot_type=snapshot_type
+            )
             captured += len(parsed)
         await session.commit()
     logger.info("sync_odds captured=%s", captured)
@@ -146,13 +154,17 @@ async def _sync_results() -> dict:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     async with AsyncSessionLocal() as session:
         rows = (
-            await session.execute(
-                select(Match).where(
-                    Match.api_fixture_id.is_not(None),
-                    Match.match_date <= now + timedelta(hours=3),
+            (
+                await session.execute(
+                    select(Match).where(
+                        Match.api_fixture_id.is_not(None),
+                        Match.match_date <= now + timedelta(hours=3),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         for match in rows:
             fixture = api.fixture_by_id(match.api_fixture_id)
@@ -167,7 +179,9 @@ async def _sync_results() -> dict:
             match.ht_home_score = score.get("halftime", {}).get("home")
             match.ht_away_score = score.get("halftime", {}).get("away")
             existing = (
-                await session.execute(select(Result).where(Result.fixture_id == match.api_fixture_id))
+                await session.execute(
+                    select(Result).where(Result.fixture_id == match.api_fixture_id)
+                )
             ).scalar_one_or_none()
             if existing:
                 existing.home_goals = goals.get("home")
@@ -187,7 +201,11 @@ async def _sync_results() -> dict:
                     )
                 )
             updated += 1
-            if status in FINISHED_STATUSES and goals.get("home") is not None and goals.get("away") is not None:
+            if (
+                status in FINISHED_STATUSES
+                and goals.get("home") is not None
+                and goals.get("away") is not None
+            ):
                 settled += await settle_fixture(session, match)
         await session.commit()
     logger.info("sync_results updated=%s settled=%s", updated, settled)
@@ -196,13 +214,20 @@ async def _sync_results() -> dict:
 
 async def settle_fixture(session, match: Match) -> int:
     candidates = (
-        await session.execute(
-            select(ValueCandidate).where(
-                ValueCandidate.fixture_id == match.api_fixture_id,
-                or_(ValueCandidate.settled_status.is_(None), ValueCandidate.settled_status == "pending"),
+        (
+            await session.execute(
+                select(ValueCandidate).where(
+                    ValueCandidate.fixture_id == match.api_fixture_id,
+                    or_(
+                        ValueCandidate.settled_status.is_(None),
+                        ValueCandidate.settled_status == "pending",
+                    ),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     count = 0
     for candidate in candidates:
         status = settle_candidate(candidate, match.home_score, match.away_score)
@@ -212,17 +237,21 @@ async def settle_fixture(session, match: Match) -> int:
         candidate.settled_at = datetime.now(timezone.utc).replace(tzinfo=None)
         count += 1
     predictions = (
-        await session.execute(
-            select(Prediction).where(
-                Prediction.fixture_id == match.api_fixture_id,
-                or_(Prediction.settled_status.is_(None), Prediction.settled_status == "pending"),
+        (
+            await session.execute(
+                select(Prediction).where(
+                    Prediction.fixture_id == match.api_fixture_id,
+                    or_(
+                        Prediction.settled_status.is_(None), Prediction.settled_status == "pending"
+                    ),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     selected_by_key = {
-        (item.market, item.pick, item.line): item
-        for item in candidates
-        if item.selected
+        (item.market, item.pick, item.line): item for item in candidates if item.selected
     }
     for pred in predictions:
         candidate = selected_by_key.get((pred.best_market, pred.best_pick, pred.best_line))
@@ -232,7 +261,9 @@ async def settle_fixture(session, match: Match) -> int:
             pred.settlement_note = candidate.settlement_note
             pred.settled_at = candidate.settled_at
         elif pred.best_market and pred.best_pick:
-            status = settle_market(pred.best_market, pred.best_pick, pred.best_line, match.home_score, match.away_score)
+            status = settle_market(
+                pred.best_market, pred.best_pick, pred.best_line, match.home_score, match.away_score
+            )
             pred.settled_status = status
             pred.profit_units = profit_units(status, pred.best_odds)
             pred.settlement_note = settlement_text(status)
@@ -244,7 +275,9 @@ def settle_candidate(candidate: ValueCandidate, home_goals: int, away_goals: int
     return settle_market(candidate.market, candidate.pick, candidate.line, home_goals, away_goals)
 
 
-def settle_market(market: str, pick: str, line: float | None, home_goals: int, away_goals: int) -> str:
+def settle_market(
+    market: str, pick: str, line: float | None, home_goals: int, away_goals: int
+) -> str:
     if market == "1x2":
         return settle_1x2(home_goals, away_goals, pick)
     if market == "asian_handicap" and line is not None:
@@ -265,8 +298,14 @@ async def _mark_due_reminders() -> dict:
     due = 0
     async with AsyncSessionLocal() as session:
         rows = (
-            await session.execute(select(Subscription).where(Subscription.created_at.is_not(None)))
-        ).scalars().all()
+            (
+                await session.execute(
+                    select(Subscription).where(Subscription.created_at.is_not(None))
+                )
+            )
+            .scalars()
+            .all()
+        )
         for sub in rows:
             match = (
                 await session.execute(select(Match).where(Match.api_fixture_id == sub.fixture_id))

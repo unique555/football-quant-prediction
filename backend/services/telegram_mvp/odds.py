@@ -221,7 +221,9 @@ def _is_low_quality(row: BookmakerOdds) -> bool:
     return row.bookmaker not in PREFERRED_BOOKMAKERS and not row.bookmaker
 
 
-def _filter_outliers(rows: list[BookmakerOdds], sides: tuple[str, ...]) -> tuple[list[BookmakerOdds], list[str]]:
+def _filter_outliers(
+    rows: list[BookmakerOdds], sides: tuple[str, ...]
+) -> tuple[list[BookmakerOdds], list[str]]:
     rows = [row for row in _dedupe_bookmakers(rows) if not _is_low_quality(row)]
     excluded: list[str] = []
     if len(rows) < 4:
@@ -246,8 +248,7 @@ def _filter_outliers(rows: list[BookmakerOdds], sides: tuple[str, ...]) -> tuple
 
 def _consensus(rows: list[BookmakerOdds], sides: tuple[str, ...]) -> tuple[int, float]:
     probs_by_bookmaker = [
-        no_vig_probs([float(getattr(row, side)) for side in sides])
-        for row in rows
+        no_vig_probs([float(getattr(row, side)) for side in sides]) for row in rows
     ]
     side_devs = []
     for idx in range(len(sides)):
@@ -264,10 +265,14 @@ def _quality_score(rows: list[BookmakerOdds], consensus_score: int, excluded_cou
     preferred = sum(1 for row in rows if row.bookmaker in PREFERRED_BOOKMAKERS)
     preferred_score = min(preferred, 5) / 5
     penalty = min(excluded_count, 5) * 4
-    return max(0, min(100, round(coverage * 45 + preferred_score * 25 + consensus_score * 0.3 - penalty)))
+    return max(
+        0, min(100, round(coverage * 45 + preferred_score * 25 + consensus_score * 0.3 - penalty))
+    )
 
 
-def _aggregate(rows: list[BookmakerOdds], market: str, sides: tuple[str, ...]) -> MarketAggregate | None:
+def _aggregate(
+    rows: list[BookmakerOdds], market: str, sides: tuple[str, ...]
+) -> MarketAggregate | None:
     rows = [row for row in rows if all(getattr(row, side) for side in sides)]
     rows, excluded = _filter_outliers(rows, sides)
     if not rows:
@@ -300,7 +305,9 @@ def _aggregate(rows: list[BookmakerOdds], market: str, sides: tuple[str, ...]) -
 
 
 def aggregate_1x2(bookmaker_odds: list[BookmakerOdds]) -> MarketAggregate | None:
-    rows = [row for row in bookmaker_odds if row.market == "1x2" and row.home and row.draw and row.away]
+    rows = [
+        row for row in bookmaker_odds if row.market == "1x2" and row.home and row.draw and row.away
+    ]
     return _aggregate(rows, "1x2", ("home", "draw", "away"))
 
 

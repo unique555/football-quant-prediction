@@ -1,3 +1,8 @@
+from services.prediction_service import (
+    _bookmaker_snapshots,
+    _engine_bookmaker_name,
+    _selected_candidate_fields,
+)
 from services.telegram_mvp.fixtures import rank_fixture_candidates, should_return_candidates
 from services.telegram_mvp.names import (
     api_team_search_variants,
@@ -137,6 +142,50 @@ def test_aggregate_1x2_computes_consensus_and_best_odds():
     assert aggregate.bookmaker_count == 3
     assert aggregate.best_odds["home"] == (2.38, "Betfair")
     assert aggregate.consensus_score > 80
+
+
+def test_prediction_service_maps_bookmakers_for_engine_weights():
+    assert _engine_bookmaker_name("WilliamHill") == "william_hill"
+    assert _engine_bookmaker_name("Marathonbet") == "marathon"
+    assert _engine_bookmaker_name("1xBet") == "1xbet"
+
+    snapshots = _bookmaker_snapshots(
+        [
+            BookmakerOdds("Pinnacle", "1x2", home=2.34, draw=3.08, away=3.48),
+            BookmakerOdds("WilliamHill", "1x2", home=2.31, draw=3.12, away=3.52),
+        ]
+    )
+
+    assert [item.name for item in snapshots] == ["pinnacle", "william_hill"]
+    assert snapshots[0].implied_home_prob > 0
+
+
+def test_prediction_service_selected_fields_from_engine_report():
+    from engine.orchestrator.pipeline import FinalReport
+
+    aggregate = aggregate_1x2(
+        [
+            BookmakerOdds("Pinnacle", "1x2", home=2.34, draw=3.08, away=3.48),
+            BookmakerOdds("Bet365", "1x2", home=2.30, draw=3.10, away=3.50),
+            BookmakerOdds("Betfair", "1x2", home=2.38, draw=3.12, away=3.45),
+        ]
+    )
+    report = FinalReport(
+        home_team="France",
+        away_team="Sweden",
+        recommended_direction="home",
+        confidence_score=0.12,
+        final_home_prob=0.52,
+        final_draw_prob=0.25,
+        final_away_prob=0.23,
+    )
+
+    selected = _selected_candidate_fields(report, aggregate)
+
+    assert selected["pick"] == "home"
+    assert selected["display_pick"] == "胜平负：France"
+    assert selected["bookmaker"] == "Betfair"
+    assert selected["ev"] > 0
 
 
 def test_value_candidate_requires_positive_ev_kelly_edge_and_coverage():

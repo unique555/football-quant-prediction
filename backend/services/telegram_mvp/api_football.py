@@ -42,7 +42,9 @@ class ApiFootballClient:
             resp.raise_for_status()
             data = resp.json()
             if data.get("errors"):
-                logger.warning("API-Football error %s params=%s errors=%s", path, params, data["errors"])
+                logger.warning(
+                    "API-Football error %s params=%s errors=%s", path, params, data["errors"]
+                )
             return data
         except requests.RequestException as exc:
             logger.warning("API-Football request failed %s params=%s error=%s", path, params, exc)
@@ -86,7 +88,9 @@ class ApiFootballClient:
             return []
         return self.get("/teams", {"search": safe_query}).get("response", [])
 
-    def fixtures_by_team(self, team_id: int, mode: str = "next", limit: int = 20) -> list[dict[str, Any]]:
+    def fixtures_by_team(
+        self, team_id: int, mode: str = "next", limit: int = 20
+    ) -> list[dict[str, Any]]:
         if mode not in {"next", "last"}:
             raise ValueError("mode must be 'next' or 'last'")
         return self.get(
@@ -99,5 +103,9 @@ class ApiFootballClient:
         fixtures: list[dict[str, Any]] = []
         for delta in range(days):
             date_str = (now + timedelta(days=delta)).date().isoformat()
-            fixtures.extend(self.get("/fixtures", {"date": date_str, "timezone": "Asia/Shanghai"}).get("response", []))
+            fixtures.extend(
+                self.get("/fixtures", {"date": date_str, "timezone": "Asia/Shanghai"}).get(
+                    "response", []
+                )
+            )
         return fixtures

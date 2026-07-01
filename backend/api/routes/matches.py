@@ -20,8 +20,10 @@ router = APIRouter()
 async def list_matches(limit: int = 50, db: AsyncSession = Depends(get_db)):
     """最近入库比赛."""
     rows = (
-        await db.execute(select(Match).order_by(desc(Match.match_date)).limit(min(limit, 100)))
-    ).scalars().all()
+        (await db.execute(select(Match).order_by(desc(Match.match_date)).limit(min(limit, 100))))
+        .scalars()
+        .all()
+    )
     return [
         {
             "id": row.id,
@@ -44,15 +46,24 @@ async def today_matches(db: AsyncSession = Depends(get_db)):
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + timedelta(days=1)
     rows = (
-        await db.execute(
-            select(Match).where(Match.match_date >= start, Match.match_date < end).order_by(Match.match_date)
+        (
+            await db.execute(
+                select(Match)
+                .where(Match.match_date >= start, Match.match_date < end)
+                .order_by(Match.match_date)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     items = []
     for match in rows:
         pred = (
             await db.execute(
-                select(Prediction).where(Prediction.fixture_id == match.api_fixture_id).order_by(desc(Prediction.created_at)).limit(1)
+                select(Prediction)
+                .where(Prediction.fixture_id == match.api_fixture_id)
+                .order_by(desc(Prediction.created_at))
+                .limit(1)
             )
         ).scalar_one_or_none()
         result = (
@@ -71,7 +82,9 @@ async def today_matches(db: AsyncSession = Depends(get_db)):
                 "value_score": pred.value_score if pred else None,
                 "risk": pred.risk if pred else None,
                 "review_status": pred.settled_status if pred else "pending",
-                "score": f"{result.home_goals}-{result.away_goals}" if result and result.home_goals is not None else None,
+                "score": f"{result.home_goals}-{result.away_goals}"
+                if result and result.home_goals is not None
+                else None,
             }
         )
     return items
@@ -87,20 +100,41 @@ async def match_detail(match_id: str, db: AsyncSession = Depends(get_db)):
     if not match:
         raise HTTPException(status_code=404, detail="match not found")
     predictions = (
-        await db.execute(
-            select(Prediction).where(Prediction.fixture_id == fixture_id).order_by(desc(Prediction.created_at)).limit(5)
+        (
+            await db.execute(
+                select(Prediction)
+                .where(Prediction.fixture_id == fixture_id)
+                .order_by(desc(Prediction.created_at))
+                .limit(5)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     candidates = (
-        await db.execute(
-            select(ValueCandidate).where(ValueCandidate.fixture_id == fixture_id).order_by(desc(ValueCandidate.created_at)).limit(20)
+        (
+            await db.execute(
+                select(ValueCandidate)
+                .where(ValueCandidate.fixture_id == fixture_id)
+                .order_by(desc(ValueCandidate.created_at))
+                .limit(20)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     snapshots = (
-        await db.execute(
-            select(OddsSnapshot).where(OddsSnapshot.fixture_id == fixture_id).order_by(desc(OddsSnapshot.captured_at)).limit(30)
+        (
+            await db.execute(
+                select(OddsSnapshot)
+                .where(OddsSnapshot.fixture_id == fixture_id)
+                .order_by(desc(OddsSnapshot.captured_at))
+                .limit(30)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     result = (
         await db.execute(select(Result).where(Result.fixture_id == fixture_id))
     ).scalar_one_or_none()

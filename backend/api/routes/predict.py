@@ -5,7 +5,7 @@
 from fastapi import APIRouter, Depends
 from models.match import Match
 from models.prediction import Prediction
-from services.telegram_mvp.pipeline import TelegramAnalysisPipeline
+from services.prediction_service import PredictionService
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,10 +17,17 @@ router = APIRouter()
 @router.post("/predict")
 async def predict_match(payload: dict, db: AsyncSession = Depends(get_db)):
     """单场比赛预测."""
-    query = payload.get("query") or f"{payload.get('home_team', '')} vs {payload.get('away_team', '')}"
-    pipeline = TelegramAnalysisPipeline()
-    result = await pipeline.resolve_text(db, query)
-    return {"status": result.status, "message": result.message, "fixture_id": result.fixture_id, "payload": result.payload}
+    query = (
+        payload.get("query") or f"{payload.get('home_team', '')} vs {payload.get('away_team', '')}"
+    )
+    service = PredictionService()
+    result = await service.resolve_text(db, query)
+    return {
+        "status": result.status,
+        "message": result.message,
+        "fixture_id": result.fixture_id,
+        "payload": result.payload,
+    }
 
 
 @router.post("/predict/batch")

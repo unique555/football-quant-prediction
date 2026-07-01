@@ -234,7 +234,10 @@ def _load_alias_files(paths: list[Path]) -> tuple[dict[str, str], dict[str, int]
             continue
         for record in _iter_alias_records(data):
             api_team_name = str(
-                record.get("api_team_name") or record.get("canonical") or record.get("team_name") or ""
+                record.get("api_team_name")
+                or record.get("canonical")
+                or record.get("team_name")
+                or ""
             ).strip()
             if not api_team_name:
                 continue
