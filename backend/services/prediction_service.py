@@ -265,11 +265,11 @@ def _persist_engine_prediction(
             risk=_risk_text(report),
             settled_status="pending",
             report_text=report_text,
-            raw_json={
-                "engine_report": _jsonable(report),
+            raw_json=_jsonable({
+                "engine_report": report,
                 "input_model_probs": model_probs.__dict__,
                 "payload": payload,
-            },
+            }),
         )
     )
 
