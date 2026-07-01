@@ -166,7 +166,7 @@ services:
       - mlflow
       - server
       - --backend-store-uri
-      - postgresql://${POSTGRES_USER:-football}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-football_quant}
+      - sqlite:////mlflow-artifacts/mlflow.db
       - --default-artifact-root
       - /mlflow-artifacts
       - --host
@@ -185,9 +185,6 @@ services:
       - mlflow_data:/mlflow-artifacts
     env_file:
       - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
     profiles:
       - full
 

@@ -12,7 +12,8 @@ This project can run on a 4H4G Ubuntu 22.04 server with Docker Compose.
 - `redis`: Celery broker/result backend
 - `worker`: Celery worker, enabled by `--profile full`
 - `beat`: Celery scheduler, enabled by `--profile full`
-- `mlflow`: experiment tracking, enabled by `--profile full`
+- `mlflow`: experiment tracking, enabled by `--profile full`, with metadata
+  and artifacts persisted in the `mlflow_data` Docker volume
 
 ## First Deploy
 
