@@ -48,7 +48,7 @@ services:
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEBUG: ${DEBUG:-false}
-      RUN_MIGRATIONS: "0"
+      RUN_MIGRATIONS: "1"
     depends_on:
       postgres:
         condition: service_healthy
@@ -121,6 +121,7 @@ services:
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEBUG: ${DEBUG:-false}
+      RUN_MIGRATIONS: "0"
     depends_on:
       postgres:
         condition: service_healthy
@@ -156,15 +157,28 @@ services:
   # MLflow — 实验追踪（可选）
   # ============================================
   mlflow:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mlflow
     container_name: fq-mlflow
     restart: unless-stopped
-    command: >
-      sh -c "pip install mlflow psycopg2-binary &&
-             mlflow server
-             --backend-store-uri postgresql://${POSTGRES_USER:-football}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-football_quant}
-             --default-artifact-root /mlflow-artifacts
-             --host 0.0.0.0 --port 5000"
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - postgresql://${POSTGRES_USER:-football}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-football_quant}
+      - --default-artifact-root
+      - /mlflow-artifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --workers
+      - "1"
+      - --allowed-hosts
+      - "*"
+      - --cors-allowed-origins
+      - "*"
     ports:
       - "5000:5000"
     volumes:
