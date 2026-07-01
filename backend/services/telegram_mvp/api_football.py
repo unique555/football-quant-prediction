@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -79,7 +80,11 @@ class ApiFootballClient:
     def teams_search(self, query: str) -> list[dict[str, Any]]:
         if not query:
             return []
-        return self.get("/teams", {"search": query}).get("response", [])
+        safe_query = re.sub(r"[^A-Za-z0-9 ]+", " ", query)
+        safe_query = re.sub(r"\s+", " ", safe_query).strip()
+        if not safe_query:
+            return []
+        return self.get("/teams", {"search": safe_query}).get("response", [])
 
     def fixtures_by_team(self, team_id: int, mode: str = "next", limit: int = 20) -> list[dict[str, Any]]:
         if mode not in {"next", "last"}:
