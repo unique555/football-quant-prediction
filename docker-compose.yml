@@ -48,6 +48,7 @@ services:
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEBUG: ${DEBUG:-false}
+      RUN_MIGRATIONS: "0"
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,6 +75,7 @@ services:
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEBUG: ${DEBUG:-false}
+      RUN_MIGRATIONS: "0"
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,6 +97,7 @@ services:
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEBUG: ${DEBUG:-false}
+      RUN_MIGRATIONS: "0"
     depends_on:
       postgres:
         condition: service_healthy
