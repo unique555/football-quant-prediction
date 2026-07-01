@@ -4,10 +4,13 @@ FastAPI 应用入口
 
 from contextlib import asynccontextmanager
 
+from api.deps import get_db
 from api.routes import backtest, leagues, matches, models_route, odds, predict
 from core.config import settings
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from services.telegram_mvp.pipeline import stats_summary
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @asynccontextmanager
@@ -44,3 +47,8 @@ app.include_router(models_route.router, prefix="/v1", tags=["模型"])
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.get("/v1/stats")
+async def stats(db: AsyncSession = Depends(get_db)):
+    return await stats_summary(db)

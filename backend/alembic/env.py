@@ -14,6 +14,13 @@ from models.match import Match  # noqa
 from models.odds import Odds  # noqa
 from models.prediction import Prediction  # noqa
 from models.team import Team  # noqa
+from models.telegram_mvp import (  # noqa
+    OddsSnapshot,
+    Result,
+    Subscription,
+    TeamAlias,
+    ValueCandidate,
+)
 from models.user import User  # noqa
 from sqlalchemy import engine_from_config, pool
 

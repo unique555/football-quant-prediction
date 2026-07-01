@@ -1,6 +1,6 @@
 # Football Quant Prediction — Makefile
 
-.PHONY: help up down build logs shell-backend shell-db clean reset test lint
+.PHONY: help up down build logs shell-backend shell-db clean reset test lint migrate
 
 help: ## 显示帮助
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -34,6 +34,11 @@ shell-backend: ## 进入后端容器
 
 db-migrate: ## 运行数据库迁移
 	docker-compose exec backend alembic upgrade head
+
+migrate: db-migrate ## db-migrate 的别名
+
+test: ## 运行 Python 单元测试
+	python -m pytest tests
 
 db-reset: ## 重置数据库（危险！）
 	docker-compose down -v postgres

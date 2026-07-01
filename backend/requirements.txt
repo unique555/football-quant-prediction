@@ -51,3 +51,5 @@ ruff>=0.4.0
 # 工具
 python-dotenv>=1.0.0
 tenacity>=8.3.0           # 重试机制
+rapidfuzz>=3.9.0          # 球队名模糊匹配
+pytest>=8.2.0             # 单元测试

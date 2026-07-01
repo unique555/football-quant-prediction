@@ -58,6 +58,29 @@ services:
         condition: service_healthy
 
   # ============================================
+  # Telegram Bot — 主入口（长轮询）
+  # ============================================
+  bot:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: fq-bot
+    command: python -m bot_app.main
+    volumes:
+      - ./backend:/app
+      - ./bot_app:/app/bot_app
+      - ./engine:/app/engine
+      - ./data:/app/data
+      - ./models_store:/app/models_store
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ============================================
   # Celery Worker — 异步任务
   # ============================================
   worker:
@@ -90,6 +113,9 @@ services:
     command: celery -A tasks.celery_app beat --loglevel=info
     volumes:
       - ./backend:/app
+      - ./engine:/app/engine
+      - ./data:/app/data
+      - ./models_store:/app/models_store
     env_file:
       - .env
     depends_on:
