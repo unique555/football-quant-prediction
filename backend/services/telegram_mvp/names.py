@@ -12,6 +12,102 @@ except ImportError:  # pragma: no cover - fallback for minimal envs
     process = None
 
 
+CHINESE_NATIONAL_TEAM_ALIASES = {
+    "中国": "China",
+    "中国队": "China",
+    "国足": "China",
+    "日本": "Japan",
+    "日本队": "Japan",
+    "韩国": "South Korea",
+    "韩国队": "South Korea",
+    "朝鲜": "North Korea",
+    "澳大利亚": "Australia",
+    "澳洲": "Australia",
+    "伊朗": "Iran",
+    "沙特": "Saudi Arabia",
+    "沙特阿拉伯": "Saudi Arabia",
+    "卡塔尔": "Qatar",
+    "阿联酋": "United Arab Emirates",
+    "伊拉克": "Iraq",
+    "约旦": "Jordan",
+    "乌兹别克斯坦": "Uzbekistan",
+    "泰国": "Thailand",
+    "越南": "Vietnam",
+    "印尼": "Indonesia",
+    "印度尼西亚": "Indonesia",
+    "马来西亚": "Malaysia",
+    "美国": "USA",
+    "美国队": "USA",
+    "加拿大": "Canada",
+    "墨西哥": "Mexico",
+    "哥斯达黎加": "Costa Rica",
+    "牙买加": "Jamaica",
+    "巴西": "Brazil",
+    "阿根廷": "Argentina",
+    "乌拉圭": "Uruguay",
+    "智利": "Chile",
+    "哥伦比亚": "Colombia",
+    "秘鲁": "Peru",
+    "厄瓜多尔": "Ecuador",
+    "巴拉圭": "Paraguay",
+    "玻利维亚": "Bolivia",
+    "委内瑞拉": "Venezuela",
+    "英格兰": "England",
+    "英格兰队": "England",
+    "苏格兰": "Scotland",
+    "威尔士": "Wales",
+    "北爱尔兰": "Northern Ireland",
+    "爱尔兰": "Ireland",
+    "法国": "France",
+    "瑞典": "Sweden",
+    "西班牙": "Spain",
+    "德国": "Germany",
+    "意大利": "Italy",
+    "葡萄牙": "Portugal",
+    "比利时": "Belgium",
+    "荷兰": "Netherlands",
+    "克罗地亚": "Croatia",
+    "丹麦": "Denmark",
+    "挪威": "Norway",
+    "芬兰": "Finland",
+    "波兰": "Poland",
+    "罗马尼亚": "Romania",
+    "土耳其": "Turkey",
+    "土耳其队": "Turkey",
+    "希腊": "Greece",
+    "瑞士": "Switzerland",
+    "奥地利": "Austria",
+    "捷克": "Czech Republic",
+    "乌克兰": "Ukraine",
+    "塞尔维亚": "Serbia",
+    "斯洛文尼亚": "Slovenia",
+    "斯洛伐克": "Slovakia",
+    "匈牙利": "Hungary",
+    "保加利亚": "Bulgaria",
+    "阿尔巴尼亚": "Albania",
+    "波黑": "Bosnia & Herzegovina",
+    "波斯尼亚": "Bosnia & Herzegovina",
+    "波斯尼亚和黑塞哥维那": "Bosnia & Herzegovina",
+    "冰岛": "Iceland",
+    "摩洛哥": "Morocco",
+    "塞内加尔": "Senegal",
+    "突尼斯": "Tunisia",
+    "加纳": "Ghana",
+    "尼日利亚": "Nigeria",
+    "喀麦隆": "Cameroon",
+    "埃及": "Egypt",
+    "阿尔及利亚": "Algeria",
+    "科特迪瓦": "Ivory Coast",
+    "象牙海岸": "Ivory Coast",
+    "南非": "South Africa",
+    "马里": "Mali",
+    "刚果民主共和国": "Congo DR",
+    "民主刚果": "Congo DR",
+    "刚果金": "Congo DR",
+    "刚果（金）": "Congo DR",
+    "刚果(金)": "Congo DR",
+}
+
 RAW_TEAM_ALIASES = {
     "crb": "CRB",
     "crb al": "CRB",
@@ -27,25 +123,11 @@ RAW_TEAM_ALIASES = {
     "vps": "VPS",
     "瓦萨": "VPS",
     "图尔库国际": "Inter Turku",
-    "法国": "France",
-    "瑞典": "Sweden",
-    "英格兰": "England",
-    "刚果民主共和国": "Congo DR",
-    "民主刚果": "Congo DR",
-    "刚果金": "Congo DR",
-    "刚果（金）": "Congo DR",
-    "刚果(金)": "Congo DR",
     "congo dr": "Congo DR",
     "dr congo": "Congo DR",
     "democratic republic of congo": "Congo DR",
-    "南非": "South Africa",
-    "加拿大": "Canada",
-    "美国": "USA",
-    "巴西": "Brazil",
-    "阿根廷": "Argentina",
-    "日本": "Japan",
-    "韩国": "South Korea",
-    "中国": "China",
+    "bosnia and herzegovina": "Bosnia & Herzegovina",
+    **CHINESE_NATIONAL_TEAM_ALIASES,
 }
 
 
@@ -57,6 +139,11 @@ class MatchQuery:
     home: str
     away: str
     raw: str
+    raw_home: str = ""
+    raw_away: str = ""
+
+
+NATIONAL_TEAM_NAMES = set(CHINESE_NATIONAL_TEAM_ALIASES.values())
 
 
 def normalize_key(name: str) -> str:
@@ -64,6 +151,10 @@ def normalize_key(name: str) -> str:
     key = key.replace("-", " ")
     key = re.sub(r"\s+", " ", key)
     return "".join(ch for ch in key if ch.isalnum() or "\u4e00" <= ch <= "\u9fff").strip()
+
+
+def contains_cjk(text: str) -> bool:
+    return any("\u4e00" <= ch <= "\u9fff" for ch in text or "")
 
 
 TEAM_ALIASES = {normalize_key(alias): canonical for alias, canonical in RAW_TEAM_ALIASES.items()}
@@ -84,10 +175,48 @@ def normalize_team_name(name: str, extra_aliases: dict[str, str] | None = None) 
             stripped = cleaned[: -len(suffix)].strip()
             alias = aliases.get(normalize_key(stripped))
             if alias:
+                if suffix == "女足" and alias in NATIONAL_TEAM_NAMES:
+                    return f"{alias} W"
                 return alias
             return stripped or cleaned
 
     return cleaned
+
+
+def is_likely_national_team(name: str) -> bool:
+    normalized = normalize_team_name(name)
+    if normalized.endswith(" W") and normalized[:-2] in NATIONAL_TEAM_NAMES:
+        return True
+    return normalized in NATIONAL_TEAM_NAMES
+
+
+def api_team_search_variants(team_name: str) -> list[str]:
+    normalized = normalize_team_name(team_name)
+    variants = [normalized]
+    replacements = {
+        "Bosnia & Herzegovina": ["Bosnia and Herzegovina", "Bosnia"],
+        "USA": ["United States"],
+        "South Korea": ["Korea Republic"],
+        "North Korea": ["Korea DPR"],
+        "Czech Republic": ["Czechia"],
+        "Turkey": ["Türkiye"],
+        "Ivory Coast": ["Cote d'Ivoire"],
+        "Congo DR": ["DR Congo", "Democratic Republic of Congo"],
+        "United Arab Emirates": ["UAE"],
+    }
+    variants.extend(replacements.get(normalized, []))
+    if normalized.endswith(" W"):
+        base = normalized[:-2]
+        variants.extend(f"{variant} W" for variant in replacements.get(base, []))
+    seen: set[str] = set()
+    unique: list[str] = []
+    for item in variants:
+        key = item.lower()
+        if not item or key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
 
 
 def parse_match_text(text: str) -> MatchQuery | None:
@@ -104,7 +233,13 @@ def parse_match_text(text: str) -> MatchQuery | None:
     home, away = parts[0].strip(), parts[1].strip()
     if not home or not away:
         return None
-    return MatchQuery(home=normalize_team_name(home), away=normalize_team_name(away), raw=cleaned)
+    return MatchQuery(
+        home=normalize_team_name(home),
+        away=normalize_team_name(away),
+        raw=cleaned,
+        raw_home=home,
+        raw_away=away,
+    )
 
 
 def team_similarity(query: str, candidate: str) -> float:

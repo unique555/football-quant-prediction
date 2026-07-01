@@ -71,6 +71,11 @@ class ApiFootballClient:
     def odds_by_fixture(self, fixture_id: int) -> list[dict[str, Any]]:
         return self.get("/odds", {"fixture": fixture_id}).get("response", [])
 
+    def teams_by_name(self, name: str) -> list[dict[str, Any]]:
+        if not name:
+            return []
+        return self.get("/teams", {"name": name}).get("response", [])
+
     def teams_search(self, query: str) -> list[dict[str, Any]]:
         if not query:
             return []

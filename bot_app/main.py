@@ -14,7 +14,7 @@ from core.database import AsyncSessionLocal
 from requests import HTTPError
 from services.telegram_mvp.api_football import ApiFootballClient
 from services.telegram_mvp.fixtures import FixtureCandidate
-from services.telegram_mvp.names import parse_match_text
+from services.telegram_mvp.names import MatchQuery, parse_match_text
 from services.telegram_mvp.pipeline import TelegramAnalysisPipeline, add_alias, stats_summary
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -25,6 +25,7 @@ logger = logging.getLogger("football_quant.bot")
 class CandidateCache:
     candidates: list[FixtureCandidate]
     expires_at: float
+    query: MatchQuery | None = None
 
 
 class TelegramBotWorker:
@@ -150,6 +151,7 @@ class TelegramBotWorker:
                 self.candidate_cache[str(chat_id)] = CandidateCache(
                     candidates=result.candidates,
                     expires_at=time.time() + 300,
+                    query=parse_match_text(normalized),
                 )
             self.send_message(chat_id, result.message)
             return
@@ -168,7 +170,11 @@ class TelegramBotWorker:
         self.send_message(chat_id, f"🔍 正在分析: {candidate.home_team} vs {candidate.away_team}...")
         try:
             async with AsyncSessionLocal() as session:
-                result = await self.pipeline.analyze_fixture(session, candidate.fixture_id)
+                result = await self.pipeline.analyze_fixture(
+                    session,
+                    candidate.fixture_id,
+                    source_query=cache.query,
+                )
         except Exception as exc:
             logger.exception("candidate analysis failed chat=%s fixture_id=%s", chat_id, candidate.fixture_id)
             self.send_message(chat_id, f"❌ 分析失败：{exc}")

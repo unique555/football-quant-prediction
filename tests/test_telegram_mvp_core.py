@@ -1,6 +1,11 @@
 from services.telegram_mvp.fixtures import rank_fixture_candidates, should_return_candidates
-from services.telegram_mvp.names import normalize_team_name, parse_match_text
+from services.telegram_mvp.names import (
+    api_team_search_variants,
+    normalize_team_name,
+    parse_match_text,
+)
 from services.telegram_mvp.odds import BookmakerOdds, aggregate_1x2
+from services.telegram_mvp.pipeline import _best_api_team_id, _query_alias_pairs_for_fixture
 from services.telegram_mvp.settlement import settle_1x2, settle_asian_handicap, settle_over_under
 from services.telegram_mvp.value import ModelProbabilities, kelly_fraction, select_value_candidates
 
@@ -17,6 +22,50 @@ def test_parse_match_text_and_chinese_aliases():
     assert national_query is not None
     assert national_query.home == "England"
     assert national_query.away == "Congo DR"
+
+    usa_query = parse_match_text("美国 vs 波黑")
+    assert usa_query is not None
+    assert usa_query.home == "USA"
+    assert usa_query.away == "Bosnia & Herzegovina"
+    assert usa_query.raw_home == "美国"
+    assert usa_query.raw_away == "波黑"
+    assert normalize_team_name("美国女足") == "USA W"
+    assert "Bosnia" in api_team_search_variants("波黑")
+
+
+class FakeApiFootballClient:
+    def teams_by_name(self, name):
+        if name == "USA":
+            return [{"team": {"id": 2384, "name": "USA", "national": True}}]
+        return []
+
+    def teams_search(self, query):
+        if query == "USA":
+            return [
+                {"team": {"id": 1, "name": "USA MLS Next Pro", "national": False}},
+                {"team": {"id": 2384, "name": "USA", "national": True}},
+            ]
+        return []
+
+
+def test_api_team_lookup_prefers_exact_national_team():
+    assert _best_api_team_id(FakeApiFootballClient(), "USA") == 2384
+
+
+def test_query_alias_pairs_follow_fixture_direction():
+    query = parse_match_text("美国 vs 波黑")
+    fixture = {
+        "teams": {
+            "home": {"name": "Bosnia & Herzegovina"},
+            "away": {"name": "USA"},
+        }
+    }
+
+    assert query is not None
+    assert _query_alias_pairs_for_fixture(query, fixture) == (
+        ("美国", "USA"),
+        ("波黑", "Bosnia & Herzegovina"),
+    )
 
 
 def test_fixture_candidate_selection_prefers_close_match():

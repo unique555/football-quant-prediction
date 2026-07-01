@@ -22,6 +22,9 @@ from services.telegram_mvp.fixtures import (
 )
 from services.telegram_mvp.names import (
     MatchQuery,
+    api_team_search_variants,
+    contains_cjk,
+    is_likely_national_team,
     normalize_key,
     normalize_team_name,
     parse_match_text,
@@ -86,18 +89,34 @@ async def load_aliases(session: AsyncSession) -> dict[str, str]:
     return {row.alias: row.api_team_name for row in rows}
 
 
+def _team_result_score(input_name: str, team: dict[str, Any]) -> float:
+    candidate_name = team.get("name", "")
+    score = team_similarity(input_name, candidate_name)
+    if normalize_key(input_name) == normalize_key(candidate_name):
+        score += 0.15
+    if is_likely_national_team(input_name) and team.get("national"):
+        score += 0.12
+    if is_likely_national_team(input_name) and not team.get("national"):
+        score -= 0.08
+    return score
+
+
 def _best_api_team_id(api: ApiFootballClient, team_name: str) -> int | None:
     best_id = None
     best_score = 0.0
-    for item in api.teams_search(team_name):
-        team = item.get("team", {})
-        candidate_name = team.get("name", "")
-        score = team_similarity(team_name, candidate_name)
-        if normalize_key(team_name) == normalize_key(candidate_name):
-            score += 0.05
-        if score > best_score:
-            best_score = score
-            best_id = team.get("id")
+    seen_ids: set[int] = set()
+    for variant in api_team_search_variants(team_name):
+        responses = [*api.teams_by_name(variant), *api.teams_search(variant)]
+        for item in responses:
+            team = item.get("team", {})
+            team_id = team.get("id")
+            if not team_id or int(team_id) in seen_ids:
+                continue
+            seen_ids.add(int(team_id))
+            score = _team_result_score(team_name, team)
+            if score > best_score:
+                best_score = score
+                best_id = team_id
     return int(best_id) if best_id and best_score >= 0.72 else None
 
 
@@ -121,6 +140,34 @@ def _fixtures_by_team_fallback(api: ApiFootballClient, query: MatchQuery) -> lis
                 seen.add(int(fixture_id))
                 fixtures.append(item)
     return fixtures
+
+
+def _query_alias_pairs_for_fixture(query: MatchQuery, fixture: dict[str, Any]) -> tuple[tuple[str, str], ...]:
+    teams = fixture.get("teams", {})
+    home_name = teams.get("home", {}).get("name", "")
+    away_name = teams.get("away", {}).get("name", "")
+    direct = (team_similarity(query.home, home_name) + team_similarity(query.away, away_name)) / 2
+    reverse = (team_similarity(query.home, away_name) + team_similarity(query.away, home_name)) / 2
+    if reverse > direct:
+        return ((query.raw_home, away_name), (query.raw_away, home_name))
+    return ((query.raw_home, home_name), (query.raw_away, away_name))
+
+
+async def remember_query_aliases(session: AsyncSession, query: MatchQuery, fixture: dict[str, Any]) -> None:
+    for alias, api_team_name in _query_alias_pairs_for_fixture(query, fixture):
+        alias = (alias or "").strip()
+        api_team_name = (api_team_name or "").strip()
+        if not alias or not api_team_name or not contains_cjk(alias):
+            continue
+        if normalize_key(alias) == normalize_key(api_team_name):
+            continue
+        key = normalize_key(alias)
+        existing = (await session.execute(select(TeamAlias).where(TeamAlias.alias_key == key))).scalar_one_or_none()
+        if existing:
+            existing.alias = alias
+            existing.api_team_name = api_team_name
+        else:
+            session.add(TeamAlias(alias=alias, alias_key=key, api_team_name=api_team_name, lang="zh"))
 
 
 async def upsert_match(session: AsyncSession, fixture: dict[str, Any]) -> Match:
@@ -314,6 +361,8 @@ class TelegramAnalysisPipeline:
                 home=normalize_team_name(query.home, aliases),
                 away=normalize_team_name(query.away, aliases),
                 raw=query.raw,
+                raw_home=query.raw_home,
+                raw_away=query.raw_away,
             )
         fixtures = self.api.fixtures_by_date_window(datetime.now(SHANGHAI_TZ), days_before=1, days_after=3)
         candidates = rank_fixture_candidates(fixtures, query)
@@ -324,14 +373,21 @@ class TelegramAnalysisPipeline:
             return PipelineResult("not_found", f"❌ API-Football 未找到比赛: {query.raw}")
         if should_return_candidates(candidates):
             return PipelineResult("candidates", format_candidate_list(candidates), candidates=candidates)
-        return await self.analyze_fixture(session, candidates[0].fixture_id)
+        return await self.analyze_fixture(session, candidates[0].fixture_id, source_query=query)
 
-    async def analyze_fixture(self, session: AsyncSession, fixture_id: int) -> PipelineResult:
+    async def analyze_fixture(
+        self,
+        session: AsyncSession,
+        fixture_id: int,
+        source_query: MatchQuery | None = None,
+    ) -> PipelineResult:
         fixture = self.api.fixture_by_id(fixture_id)
         if not fixture:
             return PipelineResult("not_found", f"❌ API-Football 未找到 fixture_id={fixture_id}")
 
         match = await upsert_match(session, fixture)
+        if source_query:
+            await remember_query_aliases(session, source_query, fixture)
         odds_response = self.api.odds_by_fixture(fixture_id)
         parsed_odds = parse_api_football_odds(odds_response)
         aggregate = aggregate_1x2(parsed_odds)
