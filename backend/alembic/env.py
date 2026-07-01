@@ -15,6 +15,7 @@ from models.odds import Odds  # noqa
 from models.prediction import Prediction  # noqa
 from models.team import Team  # noqa
 from models.telegram_mvp import (  # noqa
+    FixtureAlias,
     OddsSnapshot,
     Result,
     Subscription,

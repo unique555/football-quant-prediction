@@ -62,6 +62,12 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-slate-500">
+          <Link href="/today" className="rounded-md border border-slate-200 px-3 py-2 text-slate-700 hover:bg-slate-100">
+            今日比赛
+          </Link>
+          <Link href="/stats" className="rounded-md border border-slate-200 px-3 py-2 text-slate-700 hover:bg-slate-100">
+            模型统计
+          </Link>
           <Activity className="h-4 w-4" />
           Docker MVP
         </div>

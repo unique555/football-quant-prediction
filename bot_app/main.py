@@ -11,11 +11,13 @@ from typing import Any
 import requests
 from core.config import settings
 from core.database import AsyncSessionLocal
+from models.telegram_mvp import Subscription
 from requests import HTTPError
 from services.telegram_mvp.api_football import ApiFootballClient
 from services.telegram_mvp.fixtures import FixtureCandidate
 from services.telegram_mvp.names import MatchQuery, parse_match_text
 from services.telegram_mvp.pipeline import TelegramAnalysisPipeline, add_alias, stats_summary
+from sqlalchemy import select
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("football_quant.bot")
@@ -40,12 +42,15 @@ class TelegramBotWorker:
         self.candidate_cache: dict[str, CandidateCache] = {}
         self.offset = 0
 
-    def send_message(self, chat_id: int | str, text: str) -> None:
+    def send_message(self, chat_id: int | str, text: str, reply_markup: dict[str, Any] | None = None) -> None:
         chunks = [text[i : i + 3800] for i in range(0, len(text), 3800)] or [text]
         for chunk in chunks:
+            payload: dict[str, Any] = {"chat_id": chat_id, "text": chunk, "disable_web_page_preview": True}
+            if reply_markup:
+                payload["reply_markup"] = reply_markup
             resp = requests.post(
                 f"{self.base_url}/sendMessage",
-                json={"chat_id": chat_id, "text": chunk, "disable_web_page_preview": True},
+                json=payload,
                 timeout=20,
             )
             if not resp.ok:
@@ -54,7 +59,7 @@ class TelegramBotWorker:
     def get_updates(self) -> list[dict[str, Any]]:
         resp = requests.get(
             f"{self.base_url}/getUpdates",
-            params={"offset": self.offset, "timeout": 30, "allowed_updates": ["message"]},
+            params={"offset": self.offset, "timeout": 30, "allowed_updates": ["message", "callback_query"]},
             timeout=35,
         )
         resp.raise_for_status()
@@ -85,6 +90,9 @@ class TelegramBotWorker:
 
     async def handle_update(self, update: dict[str, Any]) -> None:
         self.offset = max(self.offset, update.get("update_id", 0) + 1)
+        if update.get("callback_query"):
+            await self.handle_callback(update["callback_query"])
+            return
         message = update.get("message") or {}
         chat = message.get("chat") or {}
         chat_id = chat.get("id")
@@ -109,7 +117,7 @@ class TelegramBotWorker:
         normalized = text.replace("／", "/").strip()
 
         if normalized.startswith("/start") or normalized in {"/帮助", "帮助", "/help"}:
-            self.send_message(chat_id, self.help_text())
+            self.send_message(chat_id, self.help_text(), reply_markup=self.main_menu())
             return
 
         if normalized.startswith("/status"):
@@ -154,9 +162,51 @@ class TelegramBotWorker:
                     query=parse_match_text(normalized),
                 )
             self.send_message(chat_id, result.message)
+            if result.fixture_id:
+                self.send_message(chat_id, "可关注本场，赛前和完场后接收提醒。", reply_markup=self.follow_markup(result.fixture_id))
             return
 
         self.send_message(chat_id, "未识别的指令。发送 /帮助 查看用法。")
+
+    async def handle_callback(self, callback: dict[str, Any]) -> None:
+        query_id = callback.get("id")
+        message = callback.get("message") or {}
+        chat_id = (message.get("chat") or {}).get("id")
+        user_id = str((callback.get("from") or {}).get("id") or "")
+        data = callback.get("data") or ""
+        if query_id:
+            requests.post(f"{self.base_url}/answerCallbackQuery", json={"callback_query_id": query_id}, timeout=10)
+        if not chat_id:
+            return
+        if data == "menu:today":
+            await self.handle_today(chat_id)
+        elif data == "menu:popular":
+            await self.handle_popular(chat_id)
+        elif data == "menu:stats":
+            async with AsyncSessionLocal() as session:
+                stats = await stats_summary(session)
+            self.send_message(chat_id, self.format_stats(stats))
+        elif data == "menu:status":
+            self.send_message(chat_id, self.status_text())
+        elif data == "menu:help":
+            self.send_message(chat_id, self.help_text(), reply_markup=self.main_menu())
+        elif data == "menu:input":
+            self.send_message(chat_id, "请直接发送：主队 vs 客队，例如：美国 vs 波黑")
+        elif data.startswith("follow:"):
+            fixture_id = int(data.split(":", 1)[1])
+            async with AsyncSessionLocal() as session:
+                existing = (
+                    await session.execute(
+                        select(Subscription).where(
+                            Subscription.user_id == user_id,
+                            Subscription.fixture_id == fixture_id,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if not existing:
+                    session.add(Subscription(user_id=user_id, chat_id=str(chat_id), fixture_id=fixture_id))
+                    await session.commit()
+            self.send_message(chat_id, f"✅ 已关注 fixture {fixture_id}，将提醒赛前6小时、赛前1小时和完场复盘。")
 
     async def handle_candidate_choice(self, chat_id: int, choice: int) -> None:
         cache = self.candidate_cache.get(str(chat_id))
@@ -253,6 +303,29 @@ class TelegramBotWorker:
         )
 
     @staticmethod
+    def main_menu() -> dict[str, Any]:
+        return {
+            "inline_keyboard": [
+                [
+                    {"text": "今日比赛", "callback_data": "menu:today"},
+                    {"text": "热门赛事", "callback_data": "menu:popular"},
+                ],
+                [
+                    {"text": "输入比赛", "callback_data": "menu:input"},
+                    {"text": "命中统计", "callback_data": "menu:stats"},
+                ],
+                [
+                    {"text": "系统状态", "callback_data": "menu:status"},
+                    {"text": "帮助", "callback_data": "menu:help"},
+                ],
+            ]
+        }
+
+    @staticmethod
+    def follow_markup(fixture_id: int) -> dict[str, Any]:
+        return {"inline_keyboard": [[{"text": "关注比赛", "callback_data": f"follow:{fixture_id}"}]]}
+
+    @staticmethod
     def status_text() -> str:
         api_status = "已配置" if settings.API_FOOTBALL_PRIMARY_KEY else "未配置"
         return f"✅ Bot 在线\nAPI-Football: {api_status}\n模式: polling only"
@@ -263,6 +336,7 @@ class TelegramBotWorker:
             "📊 统计摘要",
             f"总分析: {stats['total_predictions']}",
             f"有价值方向: {stats['value_predictions']}",
+            f"已复盘: {stats.get('settled_predictions', 0)}",
             f"价值方向占比: {stats['recent_value_rate']:.1%}",
         ]
         if stats.get("recent"):

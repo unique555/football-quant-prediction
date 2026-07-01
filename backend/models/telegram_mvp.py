@@ -31,6 +31,25 @@ class TeamAlias(Base):
     created_at = Column(DateTime, server_default=func.now())
 
 
+class FixtureAlias(Base):
+    __tablename__ = "fixture_aliases"
+    __table_args__ = (
+        UniqueConstraint("home_key", "away_key", name="uq_fixture_aliases_home_away"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    home_key = Column(String(200), nullable=False)
+    away_key = Column(String(200), nullable=False)
+    home_name = Column(String(200), nullable=False)
+    away_name = Column(String(200), nullable=False)
+    fixture_id = Column(Integer, nullable=False, index=True)
+    source_text = Column(String(300))
+    confidence = Column(Float, default=1.0)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class OddsSnapshot(Base):
     __tablename__ = "odds_snapshots"
 
@@ -60,6 +79,8 @@ class ValueCandidate(Base):
     market = Column(String(40), nullable=False)
     pick = Column(String(80), nullable=False)
     display_pick = Column(String(120), nullable=False)
+    line = Column(Float)
+    best_bookmaker = Column(String(100))
     prob = Column(Float)
     odds = Column(Float)
     market_prob = Column(Float)
@@ -70,9 +91,17 @@ class ValueCandidate(Base):
     bookmaker_count = Column(Integer, default=0)
     consensus_score = Column(Integer, default=0)
     disagreement_index = Column(Float, default=0.0)
+    data_quality_score = Column(Integer, default=0)
+    return_rate = Column(Float)
+    overround = Column(Float)
     value_score = Column(Integer, default=0)
     selected = Column(Boolean, default=False)
+    is_shadow = Column(Boolean, default=False)
     reason = Column(Text)
+    settled_status = Column(String(30), default="pending", index=True)
+    profit_units = Column(Float)
+    settlement_note = Column(Text)
+    settled_at = Column(DateTime)
     created_at = Column(DateTime, server_default=func.now(), index=True)
 
 
@@ -103,4 +132,7 @@ class Subscription(Base):
     notify_t6 = Column(Boolean, default=True)
     notify_t1 = Column(Boolean, default=True)
     notify_result = Column(Boolean, default=True)
+    notified_t6 = Column(Boolean, default=False)
+    notified_t1 = Column(Boolean, default=False)
+    notified_result = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())

@@ -6,7 +6,7 @@ import asyncio
 
 from celery.utils.log import get_task_logger
 from core.database import AsyncSessionLocal
-from services.telegram_mvp.pipeline import stats_summary
+from services.telegram_mvp.pipeline import performance_summary, stats_summary
 
 from tasks.celery_app import celery_app
 
@@ -22,5 +22,7 @@ def generate_weekly_report():
 async def _weekly_summary() -> dict:
     async with AsyncSessionLocal() as session:
         summary = await stats_summary(session)
-    logger.info("weekly summary: %s", summary)
-    return summary
+        performance = await performance_summary(session)
+    payload = {"summary": summary, "performance": performance}
+    logger.info("weekly review: %s", payload)
+    return payload

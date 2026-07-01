@@ -51,8 +51,13 @@ async def recent_predictions(limit: int = 20, db: AsyncSession = Depends(get_db)
             "best_odds": pred.best_odds,
             "best_ev": pred.best_ev,
             "best_kelly": pred.best_kelly,
+            "best_edge": pred.best_edge,
+            "best_bookmaker": pred.best_bookmaker,
+            "market_prob": pred.market_prob,
             "value_score": pred.value_score,
             "risk": pred.risk,
+            "settled_status": pred.settled_status,
+            "profit_units": pred.profit_units,
             "created_at": pred.created_at.isoformat() if pred.created_at else None,
         }
         for pred, match in rows

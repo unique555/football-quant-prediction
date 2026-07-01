@@ -1,4 +1,4 @@
-"""Settlement helpers for value candidates."""
+"""Settlement helpers for post-match review."""
 
 from __future__ import annotations
 
@@ -18,37 +18,56 @@ def settle_over_under(home_goals: int, away_goals: int, line: float, pick: str) 
     return "win" if diff < 0 else "loss"
 
 
-def _settle_half(diff: float, pick_home: bool) -> str:
+def _settle_spread(diff: float) -> str:
     if diff > 0:
-        return "win" if pick_home else "loss"
+        return "win"
     if diff == 0:
         return "push"
-    return "loss" if pick_home else "win"
+    return "loss"
+
+
+def _quarter_parts(line: float) -> tuple[float, float]:
+    doubled = round(line * 2) / 2
+    if abs(line - doubled) < 1e-9:
+        return line, line
+    lower = line - 0.25
+    upper = line + 0.25
+    return lower, upper
 
 
 def settle_asian_handicap(home_goals: int, away_goals: int, line: float, pick: str) -> str:
     """Return win/half_win/push/half_loss/loss for Asian handicap picks."""
-    pick_home = pick == "home"
-    signed_line = line if pick_home else -line
-    diff = home_goals - away_goals + signed_line
-    quarter = abs(line * 4) % 2 == 1
-    if not quarter:
-        return _settle_half(diff, pick_home=True)
-
-    lower_line = signed_line - 0.25 if signed_line > 0 else signed_line - 0.25
-    upper_line = signed_line + 0.25 if signed_line > 0 else signed_line + 0.25
-    outcomes = []
-    for part_line in (lower_line, upper_line):
-        outcomes.append(_settle_half(home_goals - away_goals + part_line, pick_home=True))
-    wins = outcomes.count("win")
-    losses = outcomes.count("loss")
-    pushes = outcomes.count("push")
-    if wins == 2:
-        return "win"
-    if losses == 2:
-        return "loss"
-    if wins and pushes:
+    signed_line = line if pick == "home" else -line
+    parts = _quarter_parts(signed_line)
+    outcomes = [_settle_spread(home_goals - away_goals + part) for part in parts]
+    if outcomes[0] == outcomes[1]:
+        return outcomes[0]
+    if "win" in outcomes and "push" in outcomes:
         return "half_win"
-    if losses and pushes:
+    if "loss" in outcomes and "push" in outcomes:
         return "half_loss"
     return "push"
+
+
+def profit_units(status: str, odds: float | None) -> float:
+    if status == "win":
+        return round((odds or 1) - 1, 4)
+    if status == "half_win":
+        return round(((odds or 1) - 1) / 2, 4)
+    if status == "push":
+        return 0.0
+    if status == "half_loss":
+        return -0.5
+    if status == "loss":
+        return -1.0
+    return 0.0
+
+
+def settlement_text(status: str) -> str:
+    return {
+        "win": "全赢",
+        "half_win": "半赢",
+        "push": "走水",
+        "half_loss": "半输",
+        "loss": "全输",
+    }.get(status, status or "pending")

@@ -14,17 +14,30 @@ type MatchDetail = {
     best_pick: string | null;
     value_score: number | null;
     risk: string | null;
+    settled_status: string | null;
+    profit_units: number | null;
+    settlement_note: string | null;
     created_at: string | null;
     report_text: string | null;
   }>;
   value_candidates: Array<{
     market: string;
     pick: string;
+    line: number | null;
+    odds: number | null;
+    prob: number | null;
+    market_prob: number | null;
     ev: number | null;
     kelly: number | null;
     edge: number | null;
+    bookmaker_count: number | null;
+    consensus_score: number | null;
+    disagreement_index: number | null;
+    risk: string | null;
     value_score: number | null;
     selected: boolean | null;
+    settled_status: string | null;
+    settlement_note: string | null;
   }>;
   odds_snapshots: Array<{
     market: string;
@@ -33,7 +46,12 @@ type MatchDetail = {
     draw_odds: number | null;
     away_odds: number | null;
     ah_line: number | null;
+    ah_home_odds: number | null;
+    ah_away_odds: number | null;
     ou_line: number | null;
+    over_odds: number | null;
+    under_odds: number | null;
+    snapshot_type: string | null;
     captured_at: string | null;
   }>;
 };
@@ -90,6 +108,11 @@ export default async function MatchDetailPage({
         <p className="mt-1 text-sm text-slate-600">
           {detail.league} · {detail.kickoff?.slice(0, 16).replace("T", " ")} · {detail.status}
         </p>
+        {latest?.settled_status && latest.settled_status !== "pending" && (
+          <p className="mt-2 text-sm text-slate-700">
+            复盘：{latest.settlement_note || latest.settled_status} · 收益 {latest.profit_units?.toFixed(2) || "0.00"}
+          </p>
+        )}
       </section>
 
       {latest?.report_text && (
@@ -114,6 +137,10 @@ export default async function MatchDetailPage({
                     EV {fmt(item.ev)} · Kelly {item.kelly?.toFixed(3) || "-"} · Edge {fmt(item.edge)} · 评分{" "}
                     {item.value_score ?? 0}
                   </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    概率 {fmt(item.prob)} / 市场 {fmt(item.market_prob)} · 机构 {item.bookmaker_count ?? 0} · 一致性{" "}
+                    {item.consensus_score ?? 0} · 风险 {item.risk || "-"} · 复盘 {item.settlement_note || item.settled_status || "pending"}
+                  </div>
                 </div>
               ))
             ) : (
@@ -130,15 +157,15 @@ export default async function MatchDetailPage({
                 <div key={`${item.bookmaker}-${index}`} className="px-5 py-4 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{item.bookmaker || "-"}</span>
-                    <span className="text-xs text-slate-500">{item.market}</span>
+                    <span className="text-xs text-slate-500">{item.snapshot_type || "latest"} · {item.market}</span>
                   </div>
                   <div className="mt-2 text-slate-500">
                     {item.market === "1x2"
                       ? `${item.home_odds ?? "-"} / ${item.draw_odds ?? "-"} / ${item.away_odds ?? "-"}`
                       : item.ah_line !== null
-                        ? `AH ${item.ah_line}`
+                        ? `AH ${item.ah_line} · ${item.ah_home_odds ?? "-"} / ${item.ah_away_odds ?? "-"}`
                         : item.ou_line !== null
-                          ? `OU ${item.ou_line}`
+                          ? `OU ${item.ou_line} · ${item.over_odds ?? "-"} / ${item.under_odds ?? "-"}`
                           : "-"}
                   </div>
                 </div>

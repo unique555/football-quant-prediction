@@ -33,6 +33,10 @@ celery_app.conf.update(
             "task": "tasks.data_sync.sync_results",
             "schedule": crontab(minute="*/30"),
         },
+        "send-reminders-every-5min": {
+            "task": "tasks.data_sync.send_reminders",
+            "schedule": crontab(minute="*/5"),
+        },
         # --- 特征 & 模型 ---
         "recalculate-elo-daily": {
             "task": "tasks.data_sync.recalculate_elo",
