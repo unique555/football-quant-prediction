@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import models  # noqa: F401  # Ensure foreign-key target tables are registered.
 from models.match import Match
 from models.prediction import Prediction
 from models.telegram_mvp import OddsSnapshot, TeamAlias, ValueCandidate
