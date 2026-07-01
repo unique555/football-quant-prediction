@@ -18,6 +18,7 @@ COPY engine/ /app/engine/
 COPY data/ /app/data/
 COPY models_store/ /app/models_store/
 COPY bot_app/ /app/bot_app/
+COPY scripts/ /app/scripts/
 COPY config.py /app/config.py
 COPY docker/entrypoint.backend.sh /entrypoint.backend.sh
 RUN chmod +x /entrypoint.backend.sh

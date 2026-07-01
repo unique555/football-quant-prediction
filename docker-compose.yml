@@ -49,6 +49,7 @@ services:
       - ./engine:/app/engine
       - ./data:/app/data
       - ./models_store:/app/models_store
+      - ./scripts:/app/scripts
     env_file:
       - .env
     depends_on:
@@ -72,6 +73,7 @@ services:
       - ./engine:/app/engine
       - ./data:/app/data
       - ./models_store:/app/models_store
+      - ./scripts:/app/scripts
     env_file:
       - .env
     depends_on:
@@ -94,6 +96,7 @@ services:
       - ./engine:/app/engine
       - ./data:/app/data
       - ./models_store:/app/models_store
+      - ./scripts:/app/scripts
     env_file:
       - .env
     depends_on:

@@ -37,6 +37,10 @@ celery_app.conf.update(
             "task": "tasks.data_sync.send_reminders",
             "schedule": crontab(minute="*/5"),
         },
+        "refresh-team-alias-file-daily": {
+            "task": "tasks.data_sync.refresh_team_alias_file",
+            "schedule": crontab(hour=2, minute=20),
+        },
         # --- 特征 & 模型 ---
         "recalculate-elo-daily": {
             "task": "tasks.data_sync.recalculate_elo",

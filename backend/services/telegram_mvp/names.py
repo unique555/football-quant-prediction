@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import os
 import re
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 try:
     from rapidfuzz import fuzz, process
@@ -158,11 +162,117 @@ def contains_cjk(text: str) -> bool:
 
 
 TEAM_ALIASES = {normalize_key(alias): canonical for alias, canonical in RAW_TEAM_ALIASES.items()}
+_FILE_ALIAS_CACHE: dict[str, Any] = {"signature": None, "aliases": {}, "team_ids": {}}
+
+
+def _default_alias_paths() -> list[Path]:
+    paths = [
+        Path(__file__).with_name("team_aliases.seed.json"),
+        Path.cwd() / "data" / "team_aliases.generated.json",
+    ]
+    app_data_dir = os.getenv("APP_DATA_DIR")
+    if app_data_dir:
+        paths.append(Path(app_data_dir) / "team_aliases.generated.json")
+    env_files = os.getenv("TEAM_ALIAS_FILE") or os.getenv("TEAM_ALIAS_FILES")
+    if env_files:
+        paths.extend(Path(item.strip()) for item in env_files.split(os.pathsep) if item.strip())
+
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for path in paths:
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(path)
+    return unique
+
+
+def _alias_file_signature(paths: list[Path]) -> tuple[tuple[str, float | None], ...]:
+    signature = []
+    for path in paths:
+        try:
+            signature.append((str(path), path.stat().st_mtime))
+        except OSError:
+            signature.append((str(path), None))
+    return tuple(signature)
+
+
+def _iter_alias_records(data: Any) -> list[dict[str, Any]]:
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    if not isinstance(data, dict):
+        return []
+    if isinstance(data.get("aliases"), list):
+        return [item for item in data["aliases"] if isinstance(item, dict)]
+    records = []
+    for alias, target in data.items():
+        if isinstance(target, str):
+            records.append({"alias": alias, "api_team_name": target})
+    return records
+
+
+def _record_aliases(record: dict[str, Any]) -> list[str]:
+    aliases: list[str] = []
+    for key in ("alias", "zh", "name"):
+        value = record.get(key)
+        if isinstance(value, str) and value.strip():
+            aliases.append(value.strip())
+    extra = record.get("aliases")
+    if isinstance(extra, list):
+        aliases.extend(str(item).strip() for item in extra if str(item).strip())
+    return aliases
+
+
+def _load_alias_files(paths: list[Path]) -> tuple[dict[str, str], dict[str, int]]:
+    aliases: dict[str, str] = {}
+    team_ids: dict[str, int] = {}
+    for path in paths:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for record in _iter_alias_records(data):
+            api_team_name = str(
+                record.get("api_team_name") or record.get("canonical") or record.get("team_name") or ""
+            ).strip()
+            if not api_team_name:
+                continue
+            api_team_id = record.get("api_team_id") or record.get("team_id")
+            for alias in _record_aliases(record):
+                key = normalize_key(alias)
+                if key:
+                    aliases[key] = api_team_name
+                    if api_team_id:
+                        team_ids[key] = int(api_team_id)
+            canonical_key = normalize_key(api_team_name)
+            if canonical_key and api_team_id:
+                team_ids[canonical_key] = int(api_team_id)
+    return aliases, team_ids
+
+
+def load_file_aliases(force: bool = False) -> dict[str, str]:
+    paths = _default_alias_paths()
+    signature = _alias_file_signature(paths)
+    if force or _FILE_ALIAS_CACHE["signature"] != signature:
+        aliases, team_ids = _load_alias_files(paths)
+        _FILE_ALIAS_CACHE.update({"signature": signature, "aliases": aliases, "team_ids": team_ids})
+    return dict(_FILE_ALIAS_CACHE["aliases"])
+
+
+def load_file_alias_team_ids(force: bool = False) -> dict[str, int]:
+    load_file_aliases(force=force)
+    return dict(_FILE_ALIAS_CACHE["team_ids"])
+
+
+def clear_file_alias_cache() -> None:
+    _FILE_ALIAS_CACHE.update({"signature": None, "aliases": {}, "team_ids": {}})
 
 
 def normalize_team_name(name: str, extra_aliases: dict[str, str] | None = None) -> str:
     cleaned = (name or "").strip()
     aliases = dict(TEAM_ALIASES)
+    aliases.update(load_file_aliases())
     if extra_aliases:
         aliases.update({normalize_key(k): v for k, v in extra_aliases.items()})
 

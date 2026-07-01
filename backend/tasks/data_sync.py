@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from celery.utils.log import get_task_logger
 from core.database import AsyncSessionLocal
 from models.match import Match
 from models.prediction import Prediction
-from models.telegram_mvp import Result, Subscription, ValueCandidate
+from models.telegram_mvp import Result, Subscription, TeamAlias, ValueCandidate
+from services.telegram_mvp.alias_builder import default_output_path, refresh_alias_file
 from services.telegram_mvp.api_football import ApiFootballClient
+from services.telegram_mvp.names import normalize_key
 from services.telegram_mvp.odds import parse_api_football_odds
 from services.telegram_mvp.pipeline import persist_odds_snapshots
 from services.telegram_mvp.settlement import (
@@ -32,6 +36,61 @@ FINISHED_STATUSES = {"FT", "AET", "PEN"}
 def sync_odds():
     """Capture T-24/T-12/T-6/latest odds snapshots for known upcoming fixtures."""
     return asyncio.run(_sync_odds())
+
+
+@celery_app.task(name="tasks.data_sync.refresh_team_alias_file")
+def refresh_team_alias_file():
+    """Refresh generated Chinese team aliases and import them into Postgres."""
+    return asyncio.run(_refresh_team_alias_file())
+
+
+async def _refresh_team_alias_file() -> dict:
+    summary = refresh_alias_file(output=default_output_path(), days_before=1, days_after=14)
+    output = Path(summary["output"])
+    async with AsyncSessionLocal() as session:
+        summary["db_aliases_upserted"] = await import_alias_file_to_db(session, output)
+        await session.commit()
+    logger.info("refresh_team_alias_file summary=%s", summary)
+    return summary
+
+
+async def import_alias_file_to_db(session, path: Path) -> int:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return 0
+    count = 0
+    for record in payload.get("aliases", []):
+        api_team_name = str(record.get("api_team_name") or "").strip()
+        if not api_team_name:
+            continue
+        api_team_id = record.get("api_team_id")
+        country = record.get("country")
+        for alias in record.get("aliases") or []:
+            alias = str(alias).strip()
+            key = normalize_key(alias)
+            if not key or key == normalize_key(api_team_name):
+                continue
+            existing = (await session.execute(select(TeamAlias).where(TeamAlias.alias_key == key))).scalar_one_or_none()
+            if existing:
+                existing.alias = alias
+                existing.api_team_name = api_team_name
+                existing.api_team_id = int(api_team_id) if api_team_id else None
+                existing.lang = "zh"
+                existing.country = country
+            else:
+                session.add(
+                    TeamAlias(
+                        alias=alias,
+                        alias_key=key,
+                        api_team_id=int(api_team_id) if api_team_id else None,
+                        api_team_name=api_team_name,
+                        lang="zh",
+                        country=country,
+                    )
+                )
+            count += 1
+    return count
 
 
 def snapshot_type_for(kickoff: datetime, now: datetime) -> str | None:

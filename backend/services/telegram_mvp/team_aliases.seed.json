@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "description": "Seed Chinese aliases used before the generated alias file is refreshed.",
+  "aliases": [
+    {
+      "api_team_name": "Botafogo SP",
+      "aliases": ["博塔弗戈SP", "博塔弗戈圣保罗", "保地花高SP"]
+    },
+    {
+      "api_team_name": "CRB",
+      "aliases": ["雷加塔斯巴西", "巴西雷加塔斯"]
+    },
+    {
+      "api_team_name": "Santos",
+      "aliases": ["桑托斯", "山度士"]
+    },
+    {
+      "api_team_name": "Sport Recife",
+      "aliases": ["累西腓体育", "利斯菲体育", "累西腓"]
+    },
+    {
+      "api_team_name": "Corinthians",
+      "aliases": ["科林蒂安", "哥连泰斯"]
+    },
+    {
+      "api_team_name": "Sao Paulo",
+      "aliases": ["圣保罗", "圣保罗FC"]
+    },
+    {
+      "api_team_name": "Palmeiras",
+      "aliases": ["帕尔梅拉斯", "彭美拉斯"]
+    },
+    {
+      "api_team_name": "Flamengo",
+      "aliases": ["弗拉门戈", "法林明高"]
+    },
+    {
+      "api_team_name": "Fluminense",
+      "aliases": ["弗鲁米嫩塞", "富明尼斯"]
+    },
+    {
+      "api_team_name": "Vasco DA Gama",
+      "aliases": ["瓦斯科达伽马", "华斯高"]
+    },
+    {
+      "api_team_name": "Gremio",
+      "aliases": ["格雷米奥", "甘美奥"]
+    },
+    {
+      "api_team_name": "Internacional",
+      "aliases": ["巴西国际", "国际体育会"]
+    },
+    {
+      "api_team_name": "Atletico-MG",
+      "aliases": ["米内罗竞技", "明尼路"]
+    },
+    {
+      "api_team_name": "Cruzeiro",
+      "aliases": ["克鲁塞罗", "高士路"]
+    },
+    {
+      "api_team_name": "Bahia",
+      "aliases": ["巴伊亚", "巴希亚"]
+    },
+    {
+      "api_team_name": "Ceara",
+      "aliases": ["塞阿拉", "施亚拉"]
+    },
+    {
+      "api_team_name": "Vitoria",
+      "aliases": ["维多利亚", "维多利亚BA"]
+    },
+    {
+      "api_team_name": "Avai",
+      "aliases": ["阿瓦伊", "艾华尔"]
+    },
+    {
+      "api_team_name": "Chapecoense-sc",
+      "aliases": ["沙佩科恩斯", "查比高恩斯"]
+    },
+    {
+      "api_team_name": "America Mineiro",
+      "aliases": ["米内罗美洲", "阿美利加明尼路"]
+    },
+    {
+      "api_team_name": "Goias",
+      "aliases": ["戈亚斯", "戈亚斯体育"]
+    },
+    {
+      "api_team_name": "Vila Nova",
+      "aliases": ["维拉诺瓦", "维拉诺瓦GO"]
+    },
+    {
+      "api_team_name": "Atletico Goianiense",
+      "aliases": ["戈亚尼亚竞技", "戈亚尼恩斯"]
+    },
+    {
+      "api_team_name": "Ponte Preta",
+      "aliases": ["庞特普雷塔", "邦迪比达"]
+    },
+    {
+      "api_team_name": "Guarani Campinas",
+      "aliases": ["瓜拉尼", "瓜拉尼坎皮纳斯"]
+    },
+    {
+      "api_team_name": "Novorizontino",
+      "aliases": ["诺沃里桑蒂诺", "新奥里藏特"]
+    },
+    {
+      "api_team_name": "Mirassol",
+      "aliases": ["米拉索尔", "米拉索"]
+    }
+  ]
+}

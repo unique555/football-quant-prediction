@@ -1,6 +1,8 @@
 from services.telegram_mvp.fixtures import rank_fixture_candidates, should_return_candidates
 from services.telegram_mvp.names import (
     api_team_search_variants,
+    clear_file_alias_cache,
+    load_file_alias_team_ids,
     normalize_team_name,
     parse_match_text,
 )
@@ -31,6 +33,39 @@ def test_parse_match_text_and_chinese_aliases():
     assert usa_query.raw_away == "波黑"
     assert normalize_team_name("美国女足") == "USA W"
     assert "Bosnia" in api_team_search_variants("波黑")
+
+    brazil_query = parse_match_text("桑托斯 vs 累西腓体育")
+    assert brazil_query is not None
+    assert brazil_query.home == "Santos"
+    assert brazil_query.away == "Sport Recife"
+
+
+def test_generated_alias_file_can_be_loaded(tmp_path, monkeypatch):
+    alias_file = tmp_path / "team_aliases.generated.json"
+    alias_file.write_text(
+        """
+        {
+          "version": 1,
+          "aliases": [
+            {
+              "api_team_id": 12345,
+              "api_team_name": "Example FC",
+              "aliases": ["示例队", "示例足球队"]
+            }
+          ]
+        }
+        """,
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TEAM_ALIAS_FILE", str(alias_file))
+    clear_file_alias_cache()
+
+    assert normalize_team_name("示例队") == "Example FC"
+    assert normalize_team_name("示例足球队") == "Example FC"
+    assert load_file_alias_team_ids()["示例队"] == 12345
+
+    monkeypatch.delenv("TEAM_ALIAS_FILE")
+    clear_file_alias_cache()
 
 
 class FakeApiFootballClient:

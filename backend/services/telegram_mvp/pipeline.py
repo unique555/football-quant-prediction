@@ -25,6 +25,7 @@ from services.telegram_mvp.names import (
     api_team_search_variants,
     contains_cjk,
     is_likely_national_team,
+    load_file_alias_team_ids,
     normalize_key,
     normalize_team_name,
     parse_match_text,
@@ -97,7 +98,10 @@ async def load_aliases(session: AsyncSession) -> dict[str, str]:
 
 async def load_alias_team_ids(session: AsyncSession) -> dict[str, int]:
     rows = (await session.execute(select(TeamAlias).where(TeamAlias.api_team_id.is_not(None)))).scalars().all()
-    return {normalize_key(row.api_team_name): int(row.api_team_id) for row in rows if row.api_team_id}
+    team_ids = load_file_alias_team_ids()
+    team_ids.update({normalize_key(row.api_team_name): int(row.api_team_id) for row in rows if row.api_team_id})
+    team_ids.update({normalize_key(row.alias): int(row.api_team_id) for row in rows if row.api_team_id})
+    return team_ids
 
 
 def _team_result_score(input_name: str, team: dict[str, Any]) -> float:
