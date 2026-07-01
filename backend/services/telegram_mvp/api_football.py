@@ -71,6 +71,19 @@ class ApiFootballClient:
     def odds_by_fixture(self, fixture_id: int) -> list[dict[str, Any]]:
         return self.get("/odds", {"fixture": fixture_id}).get("response", [])
 
+    def teams_search(self, query: str) -> list[dict[str, Any]]:
+        if not query:
+            return []
+        return self.get("/teams", {"search": query}).get("response", [])
+
+    def fixtures_by_team(self, team_id: int, mode: str = "next", limit: int = 20) -> list[dict[str, Any]]:
+        if mode not in {"next", "last"}:
+            raise ValueError("mode must be 'next' or 'last'")
+        return self.get(
+            "/fixtures",
+            {"team": team_id, mode: limit, "timezone": "Asia/Shanghai"},
+        ).get("response", [])
+
     def upcoming_fixtures(self, days: int = 3) -> list[dict[str, Any]]:
         now = datetime.now(timezone.utc)
         fixtures: list[dict[str, Any]] = []

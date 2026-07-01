@@ -25,6 +25,7 @@ from services.telegram_mvp.names import (
     normalize_key,
     normalize_team_name,
     parse_match_text,
+    team_similarity,
 )
 from services.telegram_mvp.odds import (
     aggregate_1x2,
@@ -83,6 +84,43 @@ def _fixture_to_match_dict(item: dict[str, Any]) -> dict[str, Any]:
 async def load_aliases(session: AsyncSession) -> dict[str, str]:
     rows = (await session.execute(select(TeamAlias))).scalars().all()
     return {row.alias: row.api_team_name for row in rows}
+
+
+def _best_api_team_id(api: ApiFootballClient, team_name: str) -> int | None:
+    best_id = None
+    best_score = 0.0
+    for item in api.teams_search(team_name):
+        team = item.get("team", {})
+        candidate_name = team.get("name", "")
+        score = team_similarity(team_name, candidate_name)
+        if normalize_key(team_name) == normalize_key(candidate_name):
+            score += 0.05
+        if score > best_score:
+            best_score = score
+            best_id = team.get("id")
+    return int(best_id) if best_id and best_score >= 0.72 else None
+
+
+def _fixtures_by_team_fallback(api: ApiFootballClient, query: MatchQuery) -> list[dict[str, Any]]:
+    team_ids = [
+        team_id
+        for team_id in (
+            _best_api_team_id(api, query.home),
+            _best_api_team_id(api, query.away),
+        )
+        if team_id
+    ]
+    fixtures: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    for team_id in dict.fromkeys(team_ids):
+        for mode, limit in (("next", 30), ("last", 12)):
+            for item in api.fixtures_by_team(team_id, mode=mode, limit=limit):
+                fixture_id = item.get("fixture", {}).get("id")
+                if not fixture_id or fixture_id in seen:
+                    continue
+                seen.add(int(fixture_id))
+                fixtures.append(item)
+    return fixtures
 
 
 async def upsert_match(session: AsyncSession, fixture: dict[str, Any]) -> Match:
@@ -279,6 +317,9 @@ class TelegramAnalysisPipeline:
             )
         fixtures = self.api.fixtures_by_date_window(datetime.now(SHANGHAI_TZ), days_before=1, days_after=3)
         candidates = rank_fixture_candidates(fixtures, query)
+        if not candidates:
+            fixtures = _fixtures_by_team_fallback(self.api, query)
+            candidates = rank_fixture_candidates(fixtures, query)
         if not candidates:
             return PipelineResult("not_found", f"❌ API-Football 未找到比赛: {query.raw}")
         if should_return_candidates(candidates):

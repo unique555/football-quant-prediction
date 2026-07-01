@@ -13,6 +13,11 @@ def test_parse_match_text_and_chinese_aliases():
     assert query.away == "CRB"
     assert normalize_team_name("巴西雷加塔斯") == "CRB"
 
+    national_query = parse_match_text("英格兰 vs 刚果民主共和国")
+    assert national_query is not None
+    assert national_query.home == "England"
+    assert national_query.away == "Congo DR"
+
 
 def test_fixture_candidate_selection_prefers_close_match():
     query = parse_match_text("Botafogo SP vs CRB")
