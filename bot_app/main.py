@@ -139,8 +139,13 @@ class TelegramBotWorker:
 
         if normalized.startswith("/分析") or parse_match_text(normalized):
             self.send_message(chat_id, f"🔍 正在分析: {normalized.replace('/分析', '').strip()}...")
-            async with AsyncSessionLocal() as session:
-                result = await self.pipeline.resolve_text(session, normalized)
+            try:
+                async with AsyncSessionLocal() as session:
+                    result = await self.pipeline.resolve_text(session, normalized)
+            except Exception as exc:
+                logger.exception("analysis failed chat=%s text=%s", chat_id, normalized)
+                self.send_message(chat_id, f"❌ 分析失败：{exc}")
+                return
             if result.status == "candidates" and result.candidates:
                 self.candidate_cache[str(chat_id)] = CandidateCache(
                     candidates=result.candidates,
@@ -161,8 +166,13 @@ class TelegramBotWorker:
             return
         candidate = cache.candidates[choice - 1]
         self.send_message(chat_id, f"🔍 正在分析: {candidate.home_team} vs {candidate.away_team}...")
-        async with AsyncSessionLocal() as session:
-            result = await self.pipeline.analyze_fixture(session, candidate.fixture_id)
+        try:
+            async with AsyncSessionLocal() as session:
+                result = await self.pipeline.analyze_fixture(session, candidate.fixture_id)
+        except Exception as exc:
+            logger.exception("candidate analysis failed chat=%s fixture_id=%s", chat_id, candidate.fixture_id)
+            self.send_message(chat_id, f"❌ 分析失败：{exc}")
+            return
         self.candidate_cache.pop(str(chat_id), None)
         self.send_message(chat_id, result.message)
 
@@ -269,26 +279,31 @@ class TelegramBotWorker:
         except requests.RequestException:
             self.offset = 0
 
-        while True:
-            try:
-                for update in self.get_updates():
-                    asyncio.run(self.handle_update(update))
-            except HTTPError as exc:
-                status_code = exc.response.status_code if exc.response is not None else None
-                if status_code == 409:
-                    logger.error(
-                        "Telegram polling conflict: another getUpdates/webhook consumer is active. Retrying in 30s."
-                    )
-                    time.sleep(30)
-                    continue
-                logger.exception("polling HTTP error: %s", exc)
-                time.sleep(10)
-            except KeyboardInterrupt:
-                logger.info("Telegram polling worker stopped")
-                return
-            except Exception as exc:
-                logger.exception("polling loop error: %s", exc)
-                time.sleep(5)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            while True:
+                try:
+                    for update in self.get_updates():
+                        loop.run_until_complete(self.handle_update(update))
+                except HTTPError as exc:
+                    status_code = exc.response.status_code if exc.response is not None else None
+                    if status_code == 409:
+                        logger.error(
+                            "Telegram polling conflict: another getUpdates/webhook consumer is active. Retrying in 30s."
+                        )
+                        time.sleep(30)
+                        continue
+                    logger.exception("polling HTTP error: %s", exc)
+                    time.sleep(10)
+                except KeyboardInterrupt:
+                    logger.info("Telegram polling worker stopped")
+                    return
+                except Exception as exc:
+                    logger.exception("polling loop error: %s", exc)
+                    time.sleep(5)
+        finally:
+            loop.close()
 
 
 def main() -> None:
