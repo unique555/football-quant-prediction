@@ -17,6 +17,8 @@ COPY backend/ /app/
 COPY engine/ /app/engine/
 COPY data/ /app/data/
 COPY models_store/ /app/models_store/
+COPY bot_app/ /app/bot_app/
+COPY config.py /app/config.py
 
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1

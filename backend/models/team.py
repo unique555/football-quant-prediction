@@ -11,6 +11,8 @@ class Team(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False, comment="球队名称")
+    short_name = Column(String(100), comment="球队简称")
+    country = Column(String(100), comment="国家")
     league_id = Column(Integer, ForeignKey("leagues.id"), comment="所属联赛")
     elo_rating = Column(Float, comment="ELO评分")
     xg_for_avg = Column(Float, comment="近10场xG均值")

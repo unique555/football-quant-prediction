@@ -1,71 +1,154 @@
 import Link from "next/link";
-import { BarChart3, TrendingUp, Zap } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, ChevronRight, Database, Target } from "lucide-react";
 
-export default function HomePage() {
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://backend:8000";
+
+type Stats = {
+  total_predictions: number;
+  value_predictions: number;
+  recent_value_rate: number;
+};
+
+type Prediction = {
+  id: number;
+  fixture_id: number;
+  home_team: string | null;
+  away_team: string | null;
+  league: string | null;
+  kickoff: string | null;
+  best_pick: string | null;
+  best_odds: number | null;
+  best_ev: number | null;
+  best_kelly: number | null;
+  value_score: number | null;
+  risk: string | null;
+  created_at: string | null;
+};
+
+async function getJson<T>(path: string, fallback: T): Promise<T> {
+  try {
+    const response = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
+    if (!response.ok) {
+      return fallback;
+    }
+    return response.json();
+  } catch {
+    return fallback;
+  }
+}
+
+function fmtPercent(value?: number | null) {
+  if (value === null || value === undefined) return "-";
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+export default async function DashboardPage() {
+  const [stats, predictions] = await Promise.all([
+    getJson<Stats>("/v1/stats", {
+      total_predictions: 0,
+      value_predictions: 0,
+      recent_value_rate: 0,
+    }),
+    getJson<Prediction[]>("/v1/predictions/recent?limit=12", []),
+  ]);
+
   return (
-    <div className="mx-auto max-w-7xl px-4 py-16">
-      {/* Hero */}
-      <section className="text-center mb-16">
-        <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
-          足球量化预测
-        </h1>
-        <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
-          基于泊松模型、蒙特卡洛模拟与 Stacking 集成学习的
-          <br />
-          概率化足球比赛预测引擎
-        </p>
-        <div className="mt-8 flex justify-center gap-4">
-          <Link
-            href="/predict"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-3 text-white font-medium hover:bg-primary-700 transition-colors"
-          >
-            <Zap className="h-5 w-5" />
-            立即预测
-          </Link>
-          <Link
-            href="/backtest"
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-6 py-3 font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            <BarChart3 className="h-5 w-5" />
-            查看回测
-          </Link>
+    <main className="mx-auto max-w-7xl px-4 py-8">
+      <section className="mb-8 flex flex-col gap-3 border-b border-slate-200 pb-6 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-950">FootballQuant 控制台</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Telegram 主流程、赔率快照、价值方向和赛后复盘的只读监控面板
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <Activity className="h-4 w-4" />
+          Docker MVP
         </div>
       </section>
 
-      {/* Features */}
-      <section className="grid gap-8 md:grid-cols-3">
-        {features.map(({ icon: Icon, title, desc }) => (
-          <div key={title} className="card text-center">
-            <Icon className="mx-auto h-10 w-10 text-primary-600" />
-            <h3 className="mt-4 text-lg font-semibold">{title}</h3>
-            <p className="mt-2 text-sm text-slate-600">{desc}</p>
+      <section className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-500">总分析</span>
+            <Database className="h-4 w-4 text-slate-400" />
           </div>
-        ))}
+          <div className="mt-3 text-3xl font-semibold">{stats.total_predictions}</div>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-500">有价值方向</span>
+            <Target className="h-4 w-4 text-slate-400" />
+          </div>
+          <div className="mt-3 text-3xl font-semibold">{stats.value_predictions}</div>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-500">价值方向占比</span>
+            <BarChart3 className="h-4 w-4 text-slate-400" />
+          </div>
+          <div className="mt-3 text-3xl font-semibold">{fmtPercent(stats.recent_value_rate)}</div>
+        </div>
       </section>
 
-      {/* Today's Picks — 待实现 */}
-      <section className="mt-16">
-        <h2 className="text-2xl font-bold mb-6">今日高置信度推荐</h2>
-        <p className="text-slate-500">— 数据同步后将自动展示 —</p>
+      <section className="mt-8 rounded-lg border border-slate-200 bg-white">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <h2 className="text-base font-semibold">最近预测</h2>
+          <span className="text-xs text-slate-500">{predictions.length} 条</span>
+        </div>
+        {predictions.length ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
+                <tr>
+                  <th className="px-5 py-3">比赛</th>
+                  <th className="px-5 py-3">价值方向</th>
+                  <th className="px-5 py-3">赔率</th>
+                  <th className="px-5 py-3">EV</th>
+                  <th className="px-5 py-3">Kelly</th>
+                  <th className="px-5 py-3">评分</th>
+                  <th className="px-5 py-3">风险</th>
+                  <th className="px-5 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {predictions.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50">
+                    <td className="px-5 py-4">
+                      <div className="font-medium text-slate-950">
+                        {item.home_team || "Unknown"} vs {item.away_team || "Unknown"}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {item.league || "-"} · {item.kickoff?.slice(0, 16).replace("T", " ") || "-"}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">{item.best_pick || "观望"}</td>
+                    <td className="px-5 py-4">{item.best_odds?.toFixed(2) || "-"}</td>
+                    <td className="px-5 py-4">{fmtPercent(item.best_ev)}</td>
+                    <td className="px-5 py-4">{item.best_kelly?.toFixed(3) || "-"}</td>
+                    <td className="px-5 py-4">{item.value_score ?? 0}</td>
+                    <td className="px-5 py-4">{item.risk || "-"}</td>
+                    <td className="px-5 py-4">
+                      <Link
+                        href={`/matches/${item.fixture_id}`}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
+                        title="查看详情"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 px-5 py-8 text-sm text-slate-500">
+            <AlertTriangle className="h-4 w-4" />
+            暂无预测记录。通过 Telegram 发送 `/分析 Botafogo SP vs CRB` 后会显示在这里。
+          </div>
+        )}
       </section>
-    </div>
+    </main>
   );
 }
-
-const features = [
-  {
-    icon: BarChart3,
-    title: "双轨预测引擎",
-    desc: "泊松统计模型 + Stacking ML 模型，Bayesian 融合",
-  },
-  {
-    icon: TrendingUp,
-    title: "13 个预测市场",
-    desc: "胜负平、大小球、双方进球、半场、零封全覆盖",
-  },
-  {
-    icon: Zap,
-    title: "蒙特卡洛模拟",
-    desc: "10,000 次模拟 + 环境因子修正，量化不确定性",
-  },
-];
