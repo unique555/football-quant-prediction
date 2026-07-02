@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends
 from models.match import Match
 from models.prediction import Prediction
+from services.display_names import team_display_name_map
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,12 +40,27 @@ async def value_today(limit: int = 20, db: AsyncSession = Depends(get_db)):
         )
         .all()
     )
+    display_names = await team_display_name_map(
+        db,
+        [
+            name
+            for _, match in rows
+            if match
+            for name in (match.home_team_name, match.away_team_name)
+        ],
+    )
     return [
         {
             "id": pred.id,
             "fixture_id": pred.fixture_id,
             "home_team": match.home_team_name if match else None,
             "away_team": match.away_team_name if match else None,
+            "home_team_zh": display_names.get(match.home_team_name, match.home_team_name)
+            if match
+            else None,
+            "away_team_zh": display_names.get(match.away_team_name, match.away_team_name)
+            if match
+            else None,
             "league": match.league_name if match else None,
             "kickoff": match.match_date.isoformat() if match and match.match_date else None,
             "best_pick": pred.best_display_pick,

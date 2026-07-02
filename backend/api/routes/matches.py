@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from models.match import Match
 from models.prediction import Prediction
 from models.telegram_mvp import OddsSnapshot, Result, ValueCandidate
+from services.display_names import team_display_name_map, team_display_pair
+from services.frontend_view import build_market_cards, build_report_template
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,12 +26,18 @@ async def list_matches(limit: int = 50, db: AsyncSession = Depends(get_db)):
         .scalars()
         .all()
     )
+    display_names = await team_display_name_map(
+        db,
+        [name for row in rows for name in (row.home_team_name, row.away_team_name)],
+    )
     return [
         {
             "id": row.id,
             "fixture_id": row.api_fixture_id,
             "home_team": row.home_team_name,
             "away_team": row.away_team_name,
+            "home_team_zh": display_names.get(row.home_team_name or "", row.home_team_name),
+            "away_team_zh": display_names.get(row.away_team_name or "", row.away_team_name),
             "league": row.league_name,
             "kickoff": row.match_date.isoformat() if row.match_date else None,
             "status": row.status,
@@ -56,6 +64,10 @@ async def today_matches(db: AsyncSession = Depends(get_db)):
         .scalars()
         .all()
     )
+    display_names = await team_display_name_map(
+        db,
+        [name for match in rows for name in (match.home_team_name, match.away_team_name)],
+    )
     items = []
     for match in rows:
         pred = (
@@ -74,6 +86,8 @@ async def today_matches(db: AsyncSession = Depends(get_db)):
                 "fixture_id": match.api_fixture_id,
                 "home_team": match.home_team_name,
                 "away_team": match.away_team_name,
+                "home_team_zh": display_names.get(match.home_team_name or "", match.home_team_name),
+                "away_team_zh": display_names.get(match.away_team_name or "", match.away_team_name),
                 "league": match.league_name,
                 "kickoff": match.match_date.isoformat() if match.match_date else None,
                 "status": match.status,
@@ -138,13 +152,32 @@ async def match_detail(match_id: str, db: AsyncSession = Depends(get_db)):
     result = (
         await db.execute(select(Result).where(Result.fixture_id == fixture_id))
     ).scalar_one_or_none()
+    latest_prediction = predictions[0] if predictions else None
+    home_team_zh, away_team_zh = await team_display_pair(
+        db, match.home_team_name, match.away_team_name
+    )
+    market_cards = build_market_cards(latest_prediction, candidates, snapshots)
+    analysis_report = build_report_template(
+        home_team_zh=home_team_zh or match.home_team_name or "",
+        away_team_zh=away_team_zh or match.away_team_name or "",
+        home_team=match.home_team_name or "",
+        away_team=match.away_team_name or "",
+        league=match.league_name,
+        fixture_id=fixture_id,
+        prediction=latest_prediction,
+        market_cards=market_cards,
+    )
     return {
         "fixture_id": fixture_id,
         "home_team": match.home_team_name,
         "away_team": match.away_team_name,
+        "home_team_zh": home_team_zh,
+        "away_team_zh": away_team_zh,
         "league": match.league_name,
         "kickoff": match.match_date.isoformat() if match.match_date else None,
         "status": match.status,
+        "market_cards": market_cards,
+        "analysis_report": analysis_report,
         "result": {
             "home_goals": result.home_goals,
             "away_goals": result.away_goals,
@@ -155,6 +188,14 @@ async def match_detail(match_id: str, db: AsyncSession = Depends(get_db)):
         "predictions": [
             {
                 "best_pick": item.best_display_pick,
+                "best_market": item.best_market,
+                "best_odds": item.best_odds,
+                "best_ev": item.best_ev,
+                "best_kelly": item.best_kelly,
+                "best_edge": item.best_edge,
+                "home_win_prob": item.home_win_prob,
+                "draw_prob": item.draw_prob,
+                "away_win_prob": item.away_win_prob,
                 "value_score": item.value_score,
                 "risk": item.risk,
                 "settled_status": item.settled_status,
@@ -168,7 +209,8 @@ async def match_detail(match_id: str, db: AsyncSession = Depends(get_db)):
         "value_candidates": [
             {
                 "market": item.market,
-                "pick": item.display_pick,
+                "pick": item.pick,
+                "display_pick": item.display_pick,
                 "line": item.line,
                 "odds": item.odds,
                 "market_prob": item.market_prob,
