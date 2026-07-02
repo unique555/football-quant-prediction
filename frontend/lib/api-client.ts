@@ -21,9 +21,19 @@ export const getMatches = (params?: Record<string, string>) => {
   return fetchAPI(`/v1/matches${qs}`);
 };
 
+export const getTodayMatches = () =>
+  fetchAPI("/v1/matches/today");
+
+export const getMatchDetail = (matchId: string) =>
+  fetchAPI(`/v1/matches/${matchId}`);
+
 // --- 赔率 ---
 export const getOdds = (matchId: string) =>
   fetchAPI(`/v1/odds/${matchId}`);
+
+// --- 价值投注 ---
+export const getValueToday = (limit = 20) =>
+  fetchAPI(`/v1/value/today?limit=${limit}`);
 
 // --- 回测 ---
 export const runBacktest = (config: Record<string, unknown>) =>
@@ -35,3 +45,17 @@ export const runBacktest = (config: Record<string, unknown>) =>
 // --- 模型 ---
 export const getModels = () =>
   fetchAPI("/v1/models");
+
+// --- 系统 ---
+export const getSystemStatus = () =>
+  fetchAPI("/v1/system/status");
+
+export const getStats = () =>
+  fetchAPI("/v1/stats");
+
+export const getPerformance = () =>
+  fetchAPI("/v1/stats/performance");
+
+// --- 预测记录 ---
+export const getRecentPredictions = (limit = 20) =>
+  fetchAPI(`/v1/predictions/recent?limit=${limit}`);

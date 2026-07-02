@@ -5,7 +5,7 @@ FastAPI 应用入口
 from contextlib import asynccontextmanager
 
 from api.deps import get_db
-from api.routes import backtest, leagues, matches, models_route, odds, predict
+from api.routes import backtest, leagues, matches, models_route, odds, predict, value
 from core.config import settings
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,6 +42,7 @@ app.include_router(matches.router, prefix="/v1", tags=["比赛"])
 app.include_router(odds.router, prefix="/v1", tags=["赔率"])
 app.include_router(backtest.router, prefix="/v1", tags=["回测"])
 app.include_router(models_route.router, prefix="/v1", tags=["模型"])
+app.include_router(value.router, prefix="/v1", tags=["价值投注"])
 
 
 @app.get("/health")

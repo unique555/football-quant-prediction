@@ -14,6 +14,9 @@ celery_app = Celery(
         "tasks.data_sync",
         "tasks.train_models",
         "tasks.daily_report",
+        "tasks.sync_fixtures",
+        "tasks.auto_analyze",
+        "tasks.value_screener",
     ],
 )
 
@@ -24,33 +27,37 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     beat_schedule={
-        # --- 数据同步 ---
+        # --- 比赛发现（每 6 小时） ---
+        "sync-fixtures-every-6h": {
+            "task": "tasks.sync_fixtures.discover",
+            "schedule": crontab(minute="0", hour="*/6"),
+        },
+        # --- 赔率采集 ---
         "sync-odds-every-5min": {
             "task": "tasks.data_sync.sync_odds",
             "schedule": crontab(minute="*/5"),
         },
+        # --- 自动分析（每 3 小时） ---
+        "auto-analyze-every-3h": {
+            "task": "tasks.auto_analyze.run",
+            "schedule": crontab(minute="0", hour="*/3"),
+        },
+        # --- 价值筛选+推送（每 3 小时，分析后 30 分钟） ---
+        "value-screener-every-3h": {
+            "task": "tasks.value_screener.run",
+            "schedule": crontab(minute="30", hour="*/3"),
+        },
+        # --- 结果同步+结算 ---
         "sync-results-every-30min": {
             "task": "tasks.data_sync.sync_results",
             "schedule": crontab(minute="*/30"),
         },
-        "send-reminders-every-5min": {
-            "task": "tasks.data_sync.send_reminders",
-            "schedule": crontab(minute="*/5"),
-        },
+        # --- 队名别名刷新 ---
         "refresh-team-alias-file-daily": {
             "task": "tasks.data_sync.refresh_team_alias_file",
             "schedule": crontab(hour=2, minute=20),
         },
-        # --- 特征 & 模型 ---
-        "recalculate-elo-daily": {
-            "task": "tasks.data_sync.recalculate_elo",
-            "schedule": crontab(hour=0, minute=0),
-        },
-        "generate-features-daily": {
-            "task": "tasks.data_sync.generate_features",
-            "schedule": crontab(hour=1, minute=0),
-        },
-        # --- 模型重训练（每周一） ---
+        # --- 模型重训练（每周一，Phase 2 启用） ---
         "retrain-models-weekly": {
             "task": "tasks.train_models.retrain_all",
             "schedule": crontab(hour=6, minute=0, day_of_week=1),

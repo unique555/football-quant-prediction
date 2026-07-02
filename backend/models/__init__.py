@@ -2,6 +2,7 @@
 
 from models.league import League
 from models.match import Match
+from models.model_version import ModelVersion
 from models.odds import Odds
 from models.prediction import Prediction
 from models.team import Team
@@ -19,6 +20,7 @@ __all__ = [
     "League",
     "FixtureAlias",
     "Match",
+    "ModelVersion",
     "Odds",
     "OddsSnapshot",
     "Prediction",

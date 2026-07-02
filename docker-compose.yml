@@ -103,8 +103,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    profiles:
-      - full
 
   # ============================================
   # Celery Beat — 定时任务调度
@@ -127,8 +125,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    profiles:
-      - full
 
   # ============================================
   # Next.js — 前端

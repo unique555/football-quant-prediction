@@ -121,7 +121,19 @@ def _parse_line(value: str) -> float | None:
 def parse_api_football_odds(response: list[dict[str, Any]]) -> list[BookmakerOdds]:
     parsed: list[BookmakerOdds] = []
     for fixture_odds in response:
-        for bookmaker in fixture_odds.get("bookmakers", []):
+        # API-Football v3: 每个 response 元素含 bookmaker(单数对象) + bets(数组)
+        # 兼容两种结构：bookmaker(单数) 和 bookmakers(复数数组)
+        bookmakers_data = fixture_odds.get("bookmakers")
+        if bookmakers_data is None:
+            single = fixture_odds.get("bookmaker")
+            if single:
+                # 把外层 bets 注入到 bookmaker 对象中，统一后续处理
+                bm_with_bets = dict(single)
+                bm_with_bets["bets"] = fixture_odds.get("bets", [])
+                bookmakers_data = [bm_with_bets]
+            else:
+                continue
+        for bookmaker in bookmakers_data:
             bookmaker_name = normalize_bookmaker(bookmaker.get("name", ""))
             if not bookmaker_name:
                 continue

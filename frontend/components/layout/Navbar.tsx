@@ -9,11 +9,13 @@ import {
   Gauge,
   Radio,
   Search,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "控制台", icon: Gauge },
+  { href: "/value", label: "价值投注", icon: Trophy },
   { href: "/today", label: "今日", icon: CalendarDays },
   { href: "/predict", label: "预测", icon: Search },
   { href: "/stats", label: "统计", icon: BarChart3 },

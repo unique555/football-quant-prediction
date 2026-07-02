@@ -8,6 +8,7 @@ import {
   type LucideIcon,
   ShieldAlert,
   Target,
+  Trophy,
 } from "lucide-react";
 import { fetchServerJson } from "@/lib/server-api";
 import type {
@@ -152,6 +153,22 @@ export default async function DashboardPage() {
           detail={`命中 ${pct(perf.overall.hit_rate)} / ${perf.overall.count} 条样本`}
           icon={BarChart3}
         />
+      </section>
+
+      <section className="mt-4">
+        <Link
+          href="/value"
+          className="flex items-center justify-between rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 p-4 transition-shadow hover:shadow-md"
+        >
+          <div className="flex items-center gap-3">
+            <Trophy className="h-6 w-6 text-amber-600" />
+            <div>
+              <p className="font-semibold text-slate-950">价值投注看板</p>
+              <p className="text-xs text-slate-600">系统自动筛选 Edge &gt; 3% 的价值投注 + Kelly 注额建议</p>
+            </div>
+          </div>
+          <ArrowUpRight className="h-5 w-5 text-amber-600" />
+        </Link>
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
