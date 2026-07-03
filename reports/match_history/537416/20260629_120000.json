@@ -1,0 +1,72 @@
+{
+  "timestamp": "2026-06-29T12:00:00",
+  "match": {
+    "match_id": 537416,
+    "home_team": "France",
+    "away_team": "Sweden",
+    "date": "2026-06-30T21:00:00Z",
+    "status": "TIMED",
+    "stage": "LAST_32",
+    "competition": "WC",
+    "competition_name": "FIFA World Cup",
+    "home_score": null,
+    "away_score": null
+  },
+  "odds": {
+    "home": 1.33,
+    "draw": 5.8,
+    "away": 11.5,
+    "bookmaker": "Pinnacle",
+    "fetched_at": "2026-06-29T12:00:00"
+  },
+  "prediction": {
+    "home_xg": 1.43,
+    "away_xg": 0.77,
+    "p_home": 0.54,
+    "p_draw": 0.27,
+    "p_away": 0.19,
+    "prediction": "主胜",
+    "confidence": 0.5294,
+    "top_scores": [
+      [
+        "1-0",
+        0.1591
+      ],
+      [
+        "1-1",
+        0.1217
+      ],
+      [
+        "2-0",
+        0.114
+      ]
+    ],
+    "neutral": true,
+    "source": "国家队Poisson模型",
+    "has_team_data": true
+  },
+  "value_bets": [
+    {
+      "outcome": "主胜",
+      "odds": 1.303,
+      "market_prob": 0.751,
+      "model_prob": 0.5294,
+      "edge": -0.295
+    },
+    {
+      "outcome": "平局",
+      "odds": 6.1,
+      "market_prob": 0.16,
+      "model_prob": 0.2705,
+      "edge": 0.687
+    },
+    {
+      "outcome": "客胜",
+      "odds": 11.0,
+      "market_prob": 0.089,
+      "model_prob": 0.2001,
+      "edge": 1.25
+    }
+  ],
+  "kickoff_delta_min": 1980
+}

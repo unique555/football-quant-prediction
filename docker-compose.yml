@@ -1,0 +1,206 @@
+services:
+  # ============================================
+  # PostgreSQL — 主数据库
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: fq-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-football_quant}
+      POSTGRES_USER: ${POSTGRES_USER:-football}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-football}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # Redis — 缓存 + Celery 消息队列
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: fq-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ============================================
+  # FastAPI — 后端 API 服务
+  # ============================================
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: fq-backend
+    restart: unless-stopped
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    expose:
+      - "8000"
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEBUG: ${DEBUG:-false}
+      RUN_MIGRATIONS: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # Telegram Bot — 主入口（长轮询）
+  # ============================================
+  bot:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: fq-bot
+    restart: unless-stopped
+    command: python -m bot_app.main
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEBUG: ${DEBUG:-false}
+      RUN_MIGRATIONS: "0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ============================================
+  # Celery Worker — 异步任务
+  # ============================================
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: fq-worker
+    restart: unless-stopped
+    command: celery -A tasks.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEBUG: ${DEBUG:-false}
+      RUN_MIGRATIONS: "0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ============================================
+  # Celery Beat — 定时任务调度
+  # ============================================
+  beat:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: fq-beat
+    restart: unless-stopped
+    command: celery -A tasks.celery_app beat --loglevel=info
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEBUG: ${DEBUG:-false}
+      RUN_MIGRATIONS: "0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ============================================
+  # Next.js — 前端
+  # ============================================
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: fq-frontend
+    restart: unless-stopped
+    command: pnpm start
+    expose:
+      - "3000"
+    env_file:
+      - .env
+    environment:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NODE_ENV: production
+      INTERNAL_API_URL: http://backend:8000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # ============================================
+  # MLflow — 实验追踪（可选）
+  # ============================================
+  mlflow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mlflow
+    container_name: fq-mlflow
+    restart: unless-stopped
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - sqlite:////mlflow-artifacts/mlflow.db
+      - --default-artifact-root
+      - /mlflow-artifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --workers
+      - "1"
+      - --allowed-hosts
+      - "*"
+      - --cors-allowed-origins
+      - "*"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow-artifacts
+    env_file:
+      - .env
+    profiles:
+      - full
+
+  # ============================================
+  # Nginx — 反向代理（生产模式）
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: fq-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  mlflow_data:

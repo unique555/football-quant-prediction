@@ -1,0 +1,345 @@
+{
+  "date": "2026-06-30",
+  "matches": [
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537424,
+      "date": "2026-06-30T17:00:00Z",
+      "status": "TIMED",
+      "home_team": "Ivory Coast",
+      "away_team": "Norway",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 2.79,
+        "draw": 3.06,
+        "away": 3.18
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537416,
+      "date": "2026-06-30T21:00:00Z",
+      "status": "TIMED",
+      "home_team": "France",
+      "away_team": "Sweden",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 1.89,
+        "draw": 3.7,
+        "away": 5.0
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537425,
+      "date": "2026-07-01T01:00:00Z",
+      "status": "TIMED",
+      "home_team": "Mexico",
+      "away_team": "Ecuador",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 2.76,
+        "draw": 2.57,
+        "away": 4.01
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537426,
+      "date": "2026-07-01T16:00:00Z",
+      "status": "TIMED",
+      "home_team": "England",
+      "away_team": "Congo DR",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 1.57,
+        "draw": 4.05,
+        "away": 8.61
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537422,
+      "date": "2026-07-01T20:00:00Z",
+      "status": "TIMED",
+      "home_team": "Belgium",
+      "away_team": "Senegal",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 2.79,
+        "draw": 2.92,
+        "away": 3.34
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537421,
+      "date": "2026-07-02T00:00:00Z",
+      "status": "TIMED",
+      "home_team": "United States",
+      "away_team": "Bosnia-Herzegovina",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 1.89,
+        "draw": 3.58,
+        "away": 5.21
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537420,
+      "date": "2026-07-02T19:00:00Z",
+      "status": "TIMED",
+      "home_team": "Spain",
+      "away_team": "Austria",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 2.02,
+        "draw": 3.5,
+        "away": 4.55
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537419,
+      "date": "2026-07-02T23:00:00Z",
+      "status": "TIMED",
+      "home_team": "Portugal",
+      "away_team": "Croatia",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 1.85,
+        "draw": 3.76,
+        "away": 5.2
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537429,
+      "date": "2026-07-03T03:00:00Z",
+      "status": "TIMED",
+      "home_team": "Switzerland",
+      "away_team": "Algeria",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 4.41,
+        "draw": 3.52,
+        "away": 2.05
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537428,
+      "date": "2026-07-03T18:00:00Z",
+      "status": "TIMED",
+      "home_team": "Australia",
+      "away_team": "Egypt",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 3.05,
+        "draw": 2.55,
+        "away": 3.57
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537427,
+      "date": "2026-07-03T22:00:00Z",
+      "status": "TIMED",
+      "home_team": "Argentina",
+      "away_team": "Cape Verde Islands",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 1.6,
+        "draw": 3.88,
+        "away": 8.59
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537430,
+      "date": "2026-07-04T01:30:00Z",
+      "status": "TIMED",
+      "home_team": "Colombia",
+      "away_team": "Ghana",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 2.32,
+        "draw": 2.76,
+        "away": 4.82
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537376,
+      "date": "2026-07-04T17:00:00Z",
+      "status": "TIMED",
+      "home_team": "Canada",
+      "away_team": "Morocco",
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 4.22,
+        "draw": 2.75,
+        "away": 2.51
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537375,
+      "date": "2026-07-04T21:00:00Z",
+      "status": "TIMED",
+      "home_team": "Paraguay",
+      "away_team": null,
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 3.79,
+        "draw": 2.84,
+        "away": 2.6
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537377,
+      "date": "2026-07-05T20:00:00Z",
+      "status": "TIMED",
+      "home_team": "Brazil",
+      "away_team": null,
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 1.61,
+        "draw": 3.8,
+        "away": 8.61
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537378,
+      "date": "2026-07-06T00:00:00Z",
+      "status": "TIMED",
+      "home_team": null,
+      "away_team": null,
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 2.89,
+        "draw": 3.24,
+        "away": 2.89
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537379,
+      "date": "2026-07-06T19:00:00Z",
+      "status": "TIMED",
+      "home_team": null,
+      "away_team": null,
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 2.89,
+        "draw": 3.24,
+        "away": 2.89
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537380,
+      "date": "2026-07-07T00:00:00Z",
+      "status": "TIMED",
+      "home_team": null,
+      "away_team": null,
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 2.89,
+        "draw": 3.24,
+        "away": 2.89
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537381,
+      "date": "2026-07-07T16:00:00Z",
+      "status": "TIMED",
+      "home_team": null,
+      "away_team": null,
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 2.89,
+        "draw": 3.24,
+        "away": 2.89
+      }
+    },
+    {
+      "league_name": "世界杯",
+      "league_code": "WC",
+      "match_id": 537382,
+      "date": "2026-07-07T20:00:00Z",
+      "status": "TIMED",
+      "home_team": null,
+      "away_team": null,
+      "matchday": null,
+      "market_odds": null,
+      "value_bets": [],
+      "fair_odds": {
+        "home": 2.89,
+        "draw": 3.24,
+        "away": 2.89
+      }
+    }
+  ]
+}

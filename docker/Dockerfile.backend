@@ -1,0 +1,33 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python 依赖
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 应用代码
+COPY backend/ /app/
+COPY engine/ /app/engine/
+COPY data/ /app/data/
+COPY models_store/ /app/models_store/
+COPY bot_app/ /app/bot_app/
+COPY scripts/ /app/scripts/
+COPY config.py /app/config.py
+COPY docker/entrypoint.backend.sh /entrypoint.backend.sh
+RUN chmod +x /entrypoint.backend.sh
+
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+ENTRYPOINT ["/entrypoint.backend.sh"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

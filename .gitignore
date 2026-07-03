@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+venv/
+*.egg
+
+# ML Models
+models_store/*.joblib
+models_store/*.pkl
+models_store/*.h5
+models_store/*.pt
+
+# Environment (密钥!)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Docker
+docker-compose.override.yml
+
+# Data (CSV/JSON 太大, 可重新爬取/训练)
+data/*.csv
+data/*.json
+!data/.gitkeep
+
+# Model ratings (可重新训练)
+model/team_ratings*.json
+
+# Reports (每日自动生成, 不版本控制)
+reports/
+
+# Logs
+*.log
+logs/
+
+# Temp
+*.pyc
+real_odds_*.csv
+real_odds_*.json
+live_prediction_report.md
+multi_league_report.md
+SESSION_STATE.md
+.superpowers/

@@ -1,0 +1,12 @@
+{
+  "week": "2026-W26",
+  "start": "2026-06-29",
+  "end": "2026-07-05",
+  "total_matches": 0,
+  "accuracy": 0,
+  "optimization": {
+    "home_advantage": 1.45,
+    "teams": 457
+  },
+  "generated": "2026-06-30T13:26:02.087837"
+}
