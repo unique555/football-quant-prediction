@@ -850,3 +850,27 @@ async def add_alias(session: AsyncSession, alias: str, api_team_name: str) -> Te
     session.add(item)
     await session.commit()
     return item
+
+
+async def profit_curve(session) -> list[dict]:
+    """收益曲线数据：按时间排序的累积收益"""
+    from models.prediction import Prediction
+    from sqlalchemy import select
+    rows = (
+        (await session.execute(
+            select(Prediction).where(
+                Prediction.settled_status.is_not(None),
+                Prediction.settled_status != "pending",
+                Prediction.profit_units.is_not(None),
+            ).order_by(Prediction.created_at)
+        )).scalars().all()
+    )
+    cumulative = 0.0
+    result = []
+    for row in rows:
+        cumulative += row.profit_units or 0
+        result.append({
+            "label": row.created_at.strftime("%m-%d") if row.created_at else "?",
+            "profit": round(cumulative, 4),
+        })
+    return result

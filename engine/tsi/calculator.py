@@ -1,10 +1,4 @@
 """
-TSI — Team Strength Index 实力评分计算
-基于多维加权：ELO、xG、近期战绩、阵容完整度
-→ 待实现
+废弃说明：TSI 计算已由 backend/tasks/auto_analyze.py 的 _estimate_tsi 函数替代。
+保留仅作参考，请勿使用。
 """
-
-
-def calculate_tsi(team_id: int, home: bool = False) -> float:
-    """计算球队实力指数 (0-100)"""
-    raise NotImplementedError

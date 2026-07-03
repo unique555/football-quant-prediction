@@ -245,16 +245,31 @@ export default async function MatchDetailPage({
             </div>
           </section>
 
-          {latest?.report_text ? (
+          {detail.predictions.filter(p => p.report_text).length > 0 && (
             <section className="panel">
               <div className="panel-header">
                 <h2 className="text-base font-semibold">引擎报告</h2>
+                <span className="text-xs text-slate-500">{detail.predictions.filter(p => p.report_text).length} 条</span>
               </div>
-              <pre className="max-h-[560px] overflow-auto whitespace-pre-wrap px-5 py-4 text-sm leading-6 text-slate-800">
-                {latest.report_text}
-              </pre>
+              <div className="divide-y divide-slate-100">
+                {detail.predictions.map((pred, idx) => (
+                  <div key={idx} className="px-5 py-4">
+                    <div className="mb-1 text-xs text-slate-500">
+                      {formatDate(pred.created_at)} · {pred.best_pick || "-"}
+                    </div>
+                    {pred.report_text && (
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-sm font-medium text-primary-700 hover:text-primary-900">📊 查看完整分析报告</summary>
+                        <pre className="mt-2 max-h-[500px] overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-4 text-xs leading-relaxed text-slate-700">
+                          {pred.report_text.slice(0, 10000)}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                ))}
+              </div>
             </section>
-          ) : null}
+          )}
         </div>
 
         <section className="panel overflow-hidden">

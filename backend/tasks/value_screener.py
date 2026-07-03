@@ -12,7 +12,7 @@ from celery.utils.log import get_task_logger
 from core.database import AsyncSessionLocal
 from models.match import Match
 from models.prediction import Prediction
-from services.notify import send_value_bet
+from services.notify import send_quota_alert, send_value_bet
 from sqlalchemy import desc, select
 
 from tasks.celery_app import celery_app
@@ -33,6 +33,22 @@ async def _run() -> dict:
     stats = {"candidates": 0, "pushed": 0, "skipped": 0}
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     since = now - timedelta(hours=6)  # 最近 6 小时内分析的
+
+    try:
+        import requests
+        from core.config import settings
+        resp = requests.get(
+            f"https://{settings.API_FOOTBALL_HOST}/status",
+            headers={"x-apisports-key": settings.API_FOOTBALL_PRIMARY_KEY},
+            timeout=10,
+        )
+        data = resp.json().get("response", {})
+        used = data.get("requests", {}).get("current", 0)
+        limit = data.get("requests", {}).get("limit_day", 7500)
+        if used > 0 and limit > 0 and used / limit > 0.8:
+            send_quota_alert(used, limit)
+    except Exception:
+        pass
 
     async with AsyncSessionLocal() as session:
         # 查找有 edge 的预测

@@ -56,3 +56,15 @@ def send_daily_report(message: str) -> bool:
 def send_alert(message: str) -> bool:
     """推送系统告警"""
     return send_telegram(f"⚠️ <b>系统告警</b>\n\n{message}")
+
+
+def send_error_alert(error_type: str, error_msg: str, source: str = "") -> bool:
+    """发送异常告警到 Telegram"""
+    return send_telegram(f"🚨 系统告警：{error_type}\n来源：{source}\n详情：{error_msg[:300]}")
+
+
+def send_quota_alert(used: int, limit: int) -> bool:
+    """发送 API 额度预警"""
+    pct = used / limit * 100 if limit else 0
+    level = "🔴" if pct > 90 else "🟡" if pct > 80 else "🟢"
+    return send_telegram(f"{level} API 额度预警\n已使用：{used}/{limit} ({pct:.1f}%)")

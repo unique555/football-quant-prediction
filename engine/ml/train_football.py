@@ -1,14 +1,4 @@
 """
-模型训练主脚本
-→ 待实现
+废弃说明：模型训练功能已迁移至 backend/tasks/train_models.py。
+保留仅作参考，请勿使用。
 """
-
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-def train_football_models():
-    """训练足球全部13个预测市场模型"""
-    logger.info("train_football_models: not implemented")
-    raise NotImplementedError

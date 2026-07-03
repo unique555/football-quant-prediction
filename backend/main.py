@@ -9,7 +9,7 @@ from api.routes import backtest, leagues, matches, models_route, odds, predict, 
 from core.config import settings
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from services.telegram_mvp.pipeline import performance_summary, stats_summary
+from services.telegram_mvp.pipeline import performance_summary, profit_curve, stats_summary
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -70,3 +70,8 @@ async def stats(db: AsyncSession = Depends(get_db)):
 @app.get("/v1/stats/performance")
 async def stats_performance(db: AsyncSession = Depends(get_db)):
     return await performance_summary(db)
+
+
+@app.get("/v1/stats/profit-curve")
+async def stats_profit_curve(db: AsyncSession = Depends(get_db)):
+    return await profit_curve(db)

@@ -1,3 +1,7 @@
+"use client";
+import { useState, useEffect } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { fetchClientJson } from "@/lib/client-api";
 import { BarChart3, type LucideIcon, Sigma, Target, Trophy } from "lucide-react";
 import { fetchServerJson } from "@/lib/server-api";
 import type { PerformanceBucket, PerformanceSummary } from "@/lib/types";
@@ -132,6 +136,32 @@ export default async function StatsPage() {
           detail="按候选记录 profit_units 汇总"
           icon={Trophy}
         />
+      </section>
+
+      <section className="panel mt-6">
+        <div className="panel-header">
+          <h2 className="text-base font-semibold">📈 收益曲线</h2>
+        </div>
+        <div className="px-5 py-4">
+          {(() => {
+            const [data, setData] = useState<{label:string;profit:number}[]>([]);
+            useEffect(() => {
+              fetchClientJson("/v1/stats/profit-curve").then(d => setData(d as any)).catch(() => {});
+            }, []);
+            if (data.length === 0) return <p className="text-sm text-slate-500">暂无足够数据生成收益曲线</p>;
+            return (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" fontSize={12} />
+                  <YAxis fontSize={12} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="profit" stroke="#059669" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            );
+          })()}
+        </div>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">

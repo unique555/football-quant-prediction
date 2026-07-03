@@ -33,6 +33,7 @@ from services.analyzers import (
     htft_analyzer,
     data_quality,
 )
+from services.notify import send_error_alert
 from services.report_formatter import format_reports
 from sqlalchemy import desc, select
 
@@ -107,6 +108,9 @@ async def _run() -> dict:
                 stats["failed"] += 1
 
         await session.commit()
+
+    if stats.get("failed", 0) > 0:
+        send_error_alert("分析失败", f"{stats['failed']} 场比赛分析失败，原因见日志", "auto_analyze")
 
     logger.info("auto_analyze result: %s", stats)
     return stats
